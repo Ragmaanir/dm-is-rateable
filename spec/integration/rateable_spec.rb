@@ -1,5 +1,5 @@
 require 'pathname'
-require Pathname(__FILE__).dirname.expand_path.parent + 'spec_helper'
+#require Pathname(__FILE__).dirname.expand_path.parent + 'spec_helper'
 
 if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
   
@@ -20,7 +20,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
   
-    describe "every rating", :shared => true do
+    shared_examples "every rating" do
 
       it "should define a remixed model that can be auto_migrated" do
         # once it's migrated it stays in the database and can be used by the other specs
@@ -110,7 +110,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
       
-    describe "every rateable where ratings can be toggled", :shared => true do
+    shared_examples "every rateable where ratings can be toggled" do
       
       it "should return true when 'rating_togglable?' class_level reader is called" do
         Trip.rating_togglable?.should be_true
@@ -132,7 +132,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
     
-    describe "every rateable where ratings can't be toggled", :shared => true do
+    shared_examples "every rateable where ratings can't be toggled" do
       
       it "should return false when 'rating_togglable?' class_level reader is called" do
         Trip.rating_togglable?.should be_false
@@ -152,7 +152,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
       
-    describe "every rateable where anonymous ratings can be toggled", :shared => true do
+    shared_examples "every rateable where anonymous ratings can be toggled" do
       
       it "should return true when 'anonymous_rating_togglable?' class_level reader is called" do
         Trip.anonymous_rating_togglable?.should be_true
@@ -174,7 +174,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
     
-    describe "every rateable where anonymous ratings can't be toggled", :shared => true do
+    shared_examples "every rateable where anonymous ratings can't be toggled" do
       
       it "should return false when 'anonymous_rating_togglable?' class_level reader is called" do
         Trip.anonymous_rating_togglable?.should be_false
@@ -193,7 +193,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
 
-    describe "every anonymized timestamped rating", :shared => true do
+    shared_examples "every anonymized timestamped rating" do
     
       it "should store timestamps for every anonymous rating" do
         if @t1.anonymous_rating_enabled?
@@ -208,7 +208,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
 
-    describe "every anonymized non-timestamped rating", :shared => true do
+    shared_examples "every anonymized non-timestamped rating" do
     
       it "should store timestamps for every anonymous rating" do
         if @t1.anonymous_rating_enabled?
@@ -223,7 +223,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
 
-    describe "every personalized timestamped rating", :shared => true do
+    shared_examples "every personalized timestamped rating" do
     
       it "should store timestamps for every personalized rating" do
         if @t1.rating_enabled?
@@ -238,7 +238,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
 
-    describe "every personalized non-timestamped rating", :shared => true do
+    shared_examples "every personalized non-timestamped rating" do
     
       it "should not store timestamps for every personalized rating" do
         if @t1.rating_enabled?
@@ -253,7 +253,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
 
-    describe "every aliased rating", :shared => true do
+    shared_examples "every aliased rating" do
     
       it "should set the specified alias on the 'ratings' reader" do
         @t1.respond_to?(:my_trip_ratings).should be_true
@@ -264,7 +264,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
   
-    describe "every enabled rating", :shared => true do
+    shared_examples "every enabled rating" do
       
       it "should have ratings enabled" do
         @t1.rating_enabled?.should be_true
@@ -276,7 +276,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
   
-    describe "every disabled rating", :shared => true do
+    shared_examples "every disabled rating" do
       
       it "should have ratings disabled" do
         @t1.rating_enabled?.should be_false
@@ -288,7 +288,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
   
-    describe "every enabled anonymized rating", :shared => true do
+    shared_examples "every enabled anonymized rating" do
       
       it "should have anonymized ratings enabled" do
         @t1.anonymous_rating_enabled?.should be_true
@@ -308,7 +308,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
      
-    describe "every disabled anonymized rating", :shared => true do
+    shared_examples "every disabled anonymized rating" do
       
       it "should have anonymized ratings disabled" do
         @t1.anonymous_rating_disabled?.should be_true
@@ -327,7 +327,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
     
-    describe "every enabled personalized rating", :shared => true do
+    shared_examples "every enabled personalized rating" do
       
       it "should accept allowed rating values from existing users" do
         Trip.allowed_ratings = (0..4)
@@ -377,7 +377,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
   
-    describe "every disabled personalized rating", :shared => true do
+    shared_examples "every disabled personalized rating" do
     
       it "should not allow any ratings from any existing user" do
         lambda { @t1.rate(-1, @u1) }.should raise_error(DataMapper::Is::Rateable::RatingDisabled)
@@ -391,7 +391,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
   
-    describe "allowed_ratings have not been changed", :shared => true do
+    shared_examples "allowed_ratings have not been changed" do
     
       it "should allow ratings between (0..5)" do
         Trip.allowed_ratings.should == (0..5)
@@ -402,7 +402,7 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
     # --------------------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------------
   
-    describe "rater association has not been changed", :shared => true do
+    shared_examples "rater association has not been changed" do
     
       it "should return the name of the rater association" do
         @t1.rater.should == :user
@@ -480,11 +480,15 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
           include DataMapper::Resource
           property :id, Serial
           
-          property :rating_enabled,           Boolean, :nullable => false, :default => true
-          property :anonymous_rating_enabled, Boolean, :nullable => false, :default => true
+          #property :rating_enabled,           Boolean, :nullable => false, :default => true
+          #property :anonymous_rating_enabled, Boolean, :nullable => false, :default => true
+
+          property :rating_enabled,           Boolean, :required => true, :default => true
+          property :anonymous_rating_enabled, Boolean, :required => true, :default => true
         
           # will define TripRating
-          is :rateable, :rater => :user
+          is :rateable, :rater => :user # TODO this is the original, but it causes an validation error because :required => true
+          #is :rateable, :rater => {:name => :user_id, :required => false}
         end
         
         User.auto_migrate!
@@ -576,8 +580,11 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
           include DataMapper::Resource
           property :id, Serial
           
-          property :rating_enabled,           Boolean, :nullable => false, :default => true
-          property :anonymous_rating_enabled, Boolean, :nullable => false, :default => true
+          #property :rating_enabled,           Boolean, :nullable => false, :default => true
+          #property :anonymous_rating_enabled, Boolean, :nullable => false, :default => true
+
+          property :rating_enabled,           Boolean, :required => true, :default => true
+          property :anonymous_rating_enabled, Boolean, :required => true, :default => true
         
           # will define TripRating
           is :rateable, :rater => :user, :as => :my_trip_ratings
@@ -672,8 +679,11 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
           include DataMapper::Resource
           property :id, Serial
           
-          property :rating_enabled,           Boolean, :nullable => false, :default => true
-          property :anonymous_rating_enabled, Boolean, :nullable => false, :default => true
+          #property :rating_enabled,           Boolean, :nullable => false, :default => true
+          #property :anonymous_rating_enabled, Boolean, :nullable => false, :default => true
+
+          property :rating_enabled,           Boolean, :required => true, :default => true
+          property :anonymous_rating_enabled, Boolean, :required => true, :default => true
         
           # will define TripRating
           is :rateable, :rater => :user, :timestamps => false
@@ -790,6 +800,47 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
       it_should_behave_like "every rateable where anonymous ratings can't be toggled"
       it_should_behave_like "allowed_ratings have not been changed"
 
+    end
+
+    # --------------------------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------------------------------
+    describe '#rate' do
+      before do
+        unload_rating_infrastructure 'Trip', 'User'
+
+        class User
+          include DataMapper::Resource
+          property :id, Serial
+        end
+        
+        class Trip
+          include DataMapper::Resource
+          property :id, Serial
+
+          # will define TripRating
+          is :rateable, :rater => :user
+        end
+        
+        User.auto_migrate!
+        Trip.auto_migrate!
+        TripRating.auto_migrate!
+      end
+      subject{ trip.rate(2, user) }
+      let!(:trip) { Trip.create }
+      let!(:user) { User.create }
+      
+      it 'creates a new record' do
+        expect{ subject }.to change{TripRating.count}.by(1)
+      end
+      
+      its(:created_at){ should_not be_nil }
+
+      context 'when called then' do
+        let!(:rating) { subject }
+        it '' do
+          trip.ratings[0].should == rating
+        end
+      end
     end
 
   end

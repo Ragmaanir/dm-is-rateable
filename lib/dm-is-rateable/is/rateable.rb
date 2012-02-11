@@ -47,31 +47,43 @@ module DataMapper
           :model => "#{self}Rating"
         }.merge(options)
         
-        @allowed_ratings = options[:allowed_ratings]        
-        class_inheritable_accessor :allowed_ratings
+        #@allowed_ratings = options[:allowed_ratings]        
+        #class_inheritable_accessor :allowed_ratings
         
-        @rateable_model = options[:model]
-        class_inheritable_accessor :rateable_model
+        #@rateable_model = options[:model]
+        #class_inheritable_accessor :rateable_model
         
-        @rateable_key = @rateable_model.snake_case.to_sym
-        class_inheritable_accessor :rateable_key
+        #@rateable_key = @rateable_model.snake_case.to_sym
+        #class_inheritable_accessor :rateable_key
+
+        class_attribute :allowed_ratings
+        self.allowed_ratings = options[:allowed_ratings]        
+        
+        class_attribute :rateable_model
+        self.rateable_model = options[:model]
+        
+        class_attribute :rateable_key
+        self.rateable_key = rateable_model.underscore.to_sym
         
         remix n, Rating, :as => options[:as], :model => options[:model]
         
-        @remixed_rating = remixables[:rating]
-        class_inheritable_reader :remixed_rating
+        #@remixed_rating = remixables[:rating]
+        #class_inheritable_reader :remixed_rating
+
+        class_attribute :remixed_rating
+        self.remixed_rating = remixables[:rating]
         
-        if @remixed_rating[:reader] != :ratings
+        if remixed_rating[:reader] != :ratings
           self.class_eval(<<-EOS, __FILE__, __LINE__ + 1)
-            alias :ratings :#{@remixed_rating[rateable_key][:reader]}
+            alias :ratings :#{remixed_rating[rateable_key][:reader]}
           EOS
         end
 
         # determine property type based on supplied values
         rating_type = case options[:allowed_ratings]
-          when Range then 
+          when Range then
             options[:allowed_ratings].first.is_a?(Integer) ? Integer : String
-          when Enum  then 
+          when Enum  then
             require 'dm-types'
             DataMapper::Types::Enum
           else
@@ -83,48 +95,48 @@ module DataMapper
         # prepare rating enhancements
 
         def rater_fk(name)
-          name ? Extlib::Inflection.foreign_key(name.to_s.singular).to_sym : :user_id
+          name ? DataMapper::Inflector.foreign_key(name.to_s.singularize).to_sym : :user_id
         end
 
-        if options[:rater]
-
+        tmp_rater_fk = if options[:rater]
           rater_opts = options[:rater]
           rater_name = rater_opts.is_a?(Hash) ? (rater_opts.delete(:name) || :user_id) : rater_fk(rater_opts)
           rater_type = rater_opts.is_a?(Hash) ? (rater_opts.delete(:type) || Integer)  : Integer
-          rater_property_opts = rater_opts.is_a?(Hash) ? rater_opts : { :required => true }
+          #rater_property_opts = rater_opts.is_a?(Hash) ? rater_opts : { :required => true }
+          rater_property_opts = rater_opts.is_a?(Hash) ? rater_opts : { :required => false }
           rater_property_opts.merge!(:min => 0) if rater_type == Integer # Match referenced column type
           rater_association = rater_name.to_s.gsub(/_id/, '').to_sym
 
-          @rater_fk = rater_name
-
+          rater_name
         else
-          @rater_fk = nil # no rater association established
+          nil # no rater association established
         end
 
-        class_inheritable_reader :rater_fk
+        #class_inheritable_reader :rater_fk
+        class_attribute :rater_fk
+        self.rater_fk = tmp_rater_fk
 
         # close on this because enhance will class_eval in remixable model scope 
         parent_key = self.rateable_fk
 
-        enhance :rating, @rateable_model do
+        enhance :rating, rateable_model do
 
-          property :rating, rating_type, :nullable => false
+          property :rating, rating_type, :required => true #, :nullable => false
           property :rating, rating_type, :required => true
 
           if options[:rater]
-
             property rater_name, rater_type, rater_property_opts # rater
             belongs_to rater_association
 
             parent_assocation = parent_key.to_s.gsub(/_id/, '').to_sym
-            validates_is_unique rater_name, :when => :testing_association, :scope => [parent_assocation]
-            validates_is_unique rater_name, :when => :testing_property, :scope => [parent_key]
-
+            validates_uniqueness_of rater_name, :when => :testing_association, :scope => [parent_assocation]
+            validates_uniqueness_of rater_name, :when => :testing_property, :scope => [parent_key]
           end
 
           if options[:timestamps]
-            property :created_at, DateTime
-            property :updated_at, DateTime
+            #property :created_at, DateTime
+            #property :updated_at, DateTime
+            timestamps :at
           end
 
         end
@@ -146,8 +158,8 @@ module DataMapper
         end
         
         def rateable_fk
-          demodulized_name = Extlib::Inflection.demodulize(self.name)
-          Extlib::Inflection.foreign_key(demodulized_name).to_sym
+          demodulized_name = DataMapper::Inflector.demodulize(self.name)
+          DataMapper::Inflector.foreign_key(demodulized_name).to_sym
         end
 
       end
@@ -244,14 +256,20 @@ module DataMapper
               if user
                 if r = self.user_rating(user)
                   if r.rating != rating
-                    r.update(:rating => rating)
+                    r.update(:rating => rating) or raise
                   end
                 else
-                  self.ratings.create(self.rater => user, :rating => rating)
+                  # FIXME: save or raise
+                  res = self.ratings.create(self.rater => user, :rating => rating)
+                  raise(res.errors.inspect) unless res.saved?
+                  res
                 end
               else
                 if self.anonymous_rating_enabled?
-                  self.ratings.create(:rating => rating)
+                  # FIXME: save or raise
+                  res = self.ratings.create(:rating => rating)
+                  raise(res.errors.inspect) unless res.saved?
+                  res
                 else
                   msg = "Anonymous ratings are not enabled for #{self}"
                   raise AnonymousRatingDisabled, msg                  
