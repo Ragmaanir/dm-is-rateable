@@ -94,13 +94,16 @@ module DataMapper
 
         # prepare rating enhancements
 
-        def rater_fk(name)
+        #def rater_fk(name)
+        #  name ? DataMapper::Inflector.foreign_key(name.to_s.singularize).to_sym : :user_id
+        #end
+        def rater_fk_name(name)
           name ? DataMapper::Inflector.foreign_key(name.to_s.singularize).to_sym : :user_id
         end
 
         tmp_rater_fk = if options[:rater]
           rater_opts = options[:rater]
-          rater_name = rater_opts.is_a?(Hash) ? (rater_opts.delete(:name) || :user_id) : rater_fk(rater_opts)
+          rater_name = rater_opts.is_a?(Hash) ? (rater_opts.delete(:name) || :user_id) : rater_fk_name(rater_opts)
           rater_type = rater_opts.is_a?(Hash) ? (rater_opts.delete(:type) || Integer)  : Integer
           #rater_property_opts = rater_opts.is_a?(Hash) ? rater_opts : { :required => true }
           rater_property_opts = rater_opts.is_a?(Hash) ? rater_opts : { :required => false }

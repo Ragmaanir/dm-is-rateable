@@ -842,6 +842,72 @@ if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
         end
       end
     end
+    
+    # --------------------------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------------------------------
+    describe 'is multi-rateable', :focus => true do
+      before do
+        unload_rating_infrastructure 'Trip', 'User'
+        unload_rating_infrastructure 'Trip', 'Party'
+
+        class User
+          include DataMapper::Resource
+          property :id, Serial
+        end
+        class Party
+          include DataMapper::Resource
+          property :id, Serial
+        end
+        
+        class Trip
+          include DataMapper::Resource
+          property :id, Serial
+
+          # will define TripRating
+          is :rateable, :as => :user_ratings, :rater => :user
+          is :rateable, :as => :party_ratings, :rater => :party
+          
+          enhance :ratings do
+            def test; :a ; end
+          end
+        end
+        
+        User.auto_migrate!
+        Party.auto_migrate!
+        Trip.auto_migrate!
+        TripRating.auto_migrate!
+      end
+      
+      let!(:trip) { Trip.create }
+      let!(:user) { User.create }
+      let!(:party) { Party.create }
+
+      shared_examples :enhanced_ratings do
+        it '' do
+          #p Trip.remixables
+          #Trip.remixables.should have(2).keys
+        end
+        #it '' do
+        #  trip.user_ratings
+        #end
+      end
+
+      context 'user rates' do
+        subject{ trip.rate(2,user) }
+        it 'creates a new record' do
+          expect{ subject }.to change{TripRating.count}.by(1)
+        end
+        it_should_behave_like :enhanced_ratings
+      end
+
+      context 'party rates' do
+        subject{ trip.rate(2,party) }
+        it 'creates a new record' do
+          expect{ subject }.to change{TripRating.count}.by(1)
+        end
+        it_should_behave_like :enhanced_ratings
+      end
+    end
 
   end
 
