@@ -8,7 +8,7 @@ require 'dm-aggregates'
 require 'dm-is-remixable'
 require 'dm-migrations'
 
-require 'active_support/core_ext/class'
+require 'active_support/core_ext'
 require 'active_support/inflector'
 
 # Require plugin-files

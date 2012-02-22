@@ -1,8 +1,12 @@
 
-require 'pathname'
+#$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
+#$LOAD_PATH.unshift(File.dirname(__FILE__))
 
-require 'dm-is-rateable'
+#require 'pathname'
 #require Pathname(__FILE__).dirname.expand_path.parent + 'lib/dm-is-rateable'
+
+require 'rspec'
+require 'dm-is-rateable'
 
 def load_driver(name, default_uri)
   return false if ENV['ADAPTER'] != name.to_s
@@ -30,5 +34,6 @@ HAS_POSTGRES = load_driver(:postgres, 'postgres://postgres@localhost/dm_core_tes
 RSpec.configure do |c|
   c.filter_run :focus => true
   c.run_all_when_everything_filtered = true
+  #c.fail_fast = true
 end
 

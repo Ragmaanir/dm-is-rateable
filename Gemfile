@@ -11,16 +11,19 @@ gem 'dm-types',        DM_VERSION
 gem 'dm-is-remixable', DM_VERSION
 gem 'dm-migrations',   DM_VERSION
 
+gem 'i18n'
 gem 'activesupport', '~> 3.1.1'
 
 group(:test) do
   gem 'rspec'
+  gem 'dm-sqlite-adapter'
 end
 
 group(:development) do
   gem 'rake'
   gem 'jeweler'
   gem 'yard'
+  gem 'rspec'
 end
 
 =begin

@@ -1,914 +1,477 @@
-require 'pathname'
-#require Pathname(__FILE__).dirname.expand_path.parent + 'spec_helper'
 
-if HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
+require 'pathname'
+require Pathname(__FILE__).dirname.expand_path.parent + 'spec_helper'
+
+
+describe DataMapper::Is::Rateable do
   
-  module ModelSetup
-    
-    def unload_rating_infrastructure(remixer_name, user_model_name = nil)
-      Object.send :remove_const, "#{remixer_name}Rating" if Object.const_defined? "#{remixer_name}Rating"
-      Object.send :remove_const, "#{remixer_name}" if Object.const_defined? "#{remixer_name}"
-      Object.send :remove_const, "#{user_model_name}" if Object.const_defined? "#{user_model_name}" if user_model_name
+  unless HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
+    fail 'need a database for testing (e.g. sqlite3)'
+  end
+
+  def unload_consts(*consts)
+    consts.each do |c|
+      c = "#{c}"
+      Object.send(:remove_const, c) if Object.const_defined?(c)
     end
-    
+  end
+
+  setup_rateable = ->(&code) {
+    class User
+      include DataMapper::Resource
+      property :id, Serial
+    end
+
+    class Account
+      include DataMapper::Resource
+      property :id, Serial
+    end
+
+    class Trip
+      include DataMapper::Resource
+      property :id, Serial
+    end
+
+    Trip.class_eval(&code)
+
+    [Trip,Account,User].each(&:auto_migrate!)
+
+    [Trip,Account,User]
+  }
+
+  after { unload_consts('User','Account','Trip','TripUserRating','TripAccountRating') }
+
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  shared_examples :rateable_model do
+    let(:rateable_model) { raise 'rateable model not set' }
+    subject{ rateable_model }
+
+    its(:rating_configs) { should include('TripUserRating') }
+    its(:rateable_fk) { should == :trip_id }
+
+    describe :rating_config do
+      subject{ rateable_model.rating_configs['TripUserRating'] }
+
+      its([:as]) { should == :user_ratings }
+      its([:with]) { should == (0..5) }
+      its([:by]) { should == {
+          :name => :user,
+          :model => 'User',
+          :key => :user_id,
+          :type => Integer,
+          :options => {:required => true, :min => 0}
+      }}
+    end
+  end
+
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  shared_examples "every rating" do
+
+    let(:rated_model)       { raise 'rated model not set' }
+    let(:rating_model)      { raise 'rating model not set' }
+    let(:rating_model_name) { raise 'rating model name not set' }
+
+    let(:rateable) { raise 'rateable not set' }
+
+    describe :rating_model do
+      subject{ rating_model }
+
+      it{ expect { subject.auto_migrate! }.to_not raise_error }
+
+      its(:total_rating) { should == 0 }
+    end
+
+    describe :rated_model do
+      subject{ rated_model }
+
+      #its(:rateable_model)  { should == rating_model.name }
+      #its(:rateable_key)    { should == :trip_user_rating } # FIXME
+      #its(:rateable_fk)     { should == :trip_id } # FIXME
+      #its(:total_rating)    { should == 0 } # FIXME total_user_rating
+      
+      [ :rating_togglable?,:anonymous_rating_togglable?,
+        #:rater_fk,
+        :rateable_fk].each do |method|
+        it{ should respond_to(method) }
+      end
+
+      it 'has accessor :allowed_ratings' do
+        pending
+        subject.allowed_ratings = (-3..3)
+        subject.allowed_ratings.should == (-3..3)
+      end
+    end
+
+    describe :rateable do
+
+      subject{ rateable }
+
+      [ # :ratings, 
+        :rating_togglable?, :anonymous_rating_togglable?,
+        :rating_enabled?, :rating_disabled?, :anonymous_rating_enabled?,
+        :anonymous_rating_disabled?#, :user_rating
+      ].each do |method|
+        it { should respond_to(method) }
+      end
+
+      #its(:average_user_rating) { should == 0 }
+    end
+
+  end
+
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  shared_examples :timestamped_ratings do
+    subject{ rating }
+    let(:rating) { raise 'rating not set' }
+
+    it { should respond_to(:created_at) }
+    it { should respond_to(:updated_at) }
+    #its(:created_at) { should_not be_nil }
+    #its(:updated_at) { should_not be_nil }
+  end
+
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  shared_examples 'rateable with rating enabled' do
+    subject{ rateable }
+    let(:rateable)  { raise 'rateable not set' }
+    let(:rater)     { raise 'rater not set' }
+
+    describe 'can be rated' do
+      it 'when rater passed' do
+        pending
+        rateable.rate(1,rater)
+      end
+    end
   end
   
-  describe DataMapper::Is::Rateable do
-    
-    include ModelSetup
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-  
-    shared_examples "every rating" do
-
-      it "should define a remixed model that can be auto_migrated" do
-        # once it's migrated it stays in the database and can be used by the other specs
-        Object.const_defined?("TripRating").should be_true
-        lambda { TripRating.auto_migrate! }.should_not raise_error
-      end
-      
-      it "should define a 'rateable_model' class_level reader on the remixing model" do
-        Trip.respond_to?(:rateable_model).should be_true
-        Trip.rateable_model.should == "TripRating"
-      end
-                  
-      it "should define a 'rateable_key' class_level reader on the remixing model" do
-        Trip.respond_to?(:rateable_key).should be_true
-        Trip.rateable_key.should == :trip_rating
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  describe 'is :rateable, :by => :users' do
+    before do
+      setup_rateable.call do
+        is :rateable, :by => :users
       end
 
-      it "should define a 'rating_togglable?' class method on the remixing model" do
-        Trip.respond_to?(:rating_togglable?).should be_true
-      end
-      
-      it "should define a 'anonymous_rating_togglable?' class method on the remixing model" do
-        Trip.respond_to?(:anonymous_rating_togglable?).should be_true
-      end
-      
-      it "should define a 'rater_fk' class method on the remixing model" do
-        Trip.respond_to?(:rater_fk).should be_true
-      end
-            
-      it "should define a 'rateable_fk' class method on the remixing model" do
-        Trip.respond_to?(:rateable_fk).should be_true
-      end
-       
-      it "should use DataMapper foreign_key naming conventions for naming the 'rateable_fk' in the remixing model" do
-        Trip.rateable_fk.should == :trip_id
-      end
-        
-      it "should define a 'total_rating' class_level reader on the remixed rateable model" do
-        TripRating.total_rating.should == 0
-        Trip.total_rating.should == 0
-      end
-    
-      it "should define a 'allowed_ratings' class_level accessor on the remixing model" do
-        Trip.allowed_ratings = (0..1)
-        Trip.allowed_ratings.should == (0..1)
-      end
-      
-      
-      it "should respond_to?(:ratings)" do
-        @t1.respond_to?(:ratings).should be_true
+      [TripUserRating].each(&:auto_migrate!)
+    end
+
+    it_behaves_like :rateable_model do
+      let(:rateable_model) { Trip }
+    end
+
+    it_behaves_like 'every rating' do
+      let(:rating_model) { TripUserRating }
+      let(:rated_model) { Trip }
+      let(:rateable) { Trip.create }
+    end
+  end
+
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  describe 'is :rateable, :by => :users, :as => :ratings' do
+    before do
+      setup_rateable.call do
+        is :rateable, :by => :users, :as => :ratings
       end
 
-      it "should respond_to?(:rating_togglable?)" do
-        @t1.respond_to?(:rating_togglable?).should be_true
-      end
+      [TripUserRating].each(&:auto_migrate!)
+    end
+
+    describe :rateable do
+      subject{ Trip.create }
+      it { should respond_to(:ratings) }
+      it { should_not respond_to(:user_ratings) }
       
-      it "should respond_to?(:anonymous_rating_togglable?)" do
-        @t1.respond_to?(:anonymous_rating_togglable?).should be_true
+      it { should respond_to(:average_rating) }
+      it { should_not respond_to(:average_user_rating) }
+
+      context 'when no rating supplied' do
+        its(:average_rating) { should be_nil }
       end
-            
-      it "should respond_to?(:rating_enabled?)" do
-        @t1.respond_to?(:rating_enabled?).should be_true
+
+      context 'when rating supplied by rater' do
+        let(:rater)   { User.create }
+        let(:rating)  { 2 }
+        before{ subject.rate(rating,rater) }
+
+        its(:average_rating) { should == rating }
       end
-            
-      it "should respond_to?(:rating_disabled?)" do
-        @t1.respond_to?(:rating_disabled?).should be_true
+    end
+  end
+
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  describe 'is :rateable, :by => :users and :accounts' do
+    before do
+      setup_rateable.call do
+        is :rateable, :by => :users
+        is :rateable, :by => :accounts
       end
-            
-      it "should respond_to?(:anonymous_rating_enabled?)" do
-        @t1.respond_to?(:rating_enabled?).should be_true
-      end
-                  
-      it "should respond_to?(:anonymous_rating_disabled?)" do
-        @t1.respond_to?(:rating_enabled?).should be_true
-      end
+
+      [TripUserRating,TripAccountRating].each(&:auto_migrate!)
+    end
+
+    #it_behaves_like 'every rating' do
+    #  let(:rating_model) { TripUserRating }
+    #  let(:rated_model) { Trip }
+    #  let(:rateable) { Trip.create }
+    #end
+
+    it_behaves_like :rateable_model do
+      let(:rateable_model) { Trip }
+    end
+
+    describe :rateable do
+      let(:rateable) { Trip.create }
+      subject{ rateable }
       
-      it "should respond_to?(:user_rating)" do
-        @t1.respond_to?(:user_rating).should be_true
+      it { should respond_to(:user_ratings) }
+      it { should respond_to(:account_ratings) }
+      it { should_not respond_to(:ratings) }
+
+      it { should respond_to(:average_user_rating) }
+      it { should respond_to(:average_account_rating) }
+      it { should_not respond_to(:average_rating) }
+
+      context 'when no rating supplied' do
+        its(:average_user_rating) { should be_nil }
+        its(:average_account_rating) { should be_nil }
       end
-      
-      it "should allow to access the current rating" do
-        @t1.rating.should == 0
+
+      context 'when rating supplied by user' do
+        let(:rater)   { User.create }
+        let(:rating)  { 2 }
+        before{ subject.rate(rating,rater) }
+
+        its(:average_user_rating) { should == rating }
+        its(:average_account_rating) { should be_nil }
+      end
+
+      context 'when rating supplied by account' do
+        let(:rater)   { Account.create }
+        let(:rating)  { 2 }
+        before{ subject.rate(rating,rater) }
+
+        its(:average_account_rating) { should == rating }
+        its(:average_user_rating) { should be_nil }
       end
 
     end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-      
-    shared_examples "every rateable where ratings can be toggled" do
-      
-      it "should return true when 'rating_togglable?' class_level reader is called" do
-        Trip.rating_togglable?.should be_true
-      end
-    
-      it "should allow to disable and reenable ratings for itself" do
-        @t1.disable_rating!
-        @t1 = Trip.get(1)
-        @t1.rating_enabled?.should be_false
-        lambda { @t1.rate(1, @u1) }.should raise_error(DataMapper::Is::Rateable::RatingDisabled)
-        @t1.enable_rating!
-        @t1 = Trip.get(1)
-        @t1.rating_enabled?.should be_true
-        lambda { @t1.rate(1, @u1) }.should_not raise_error
-      end
-    
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    
-    shared_examples "every rateable where ratings can't be toggled" do
-      
-      it "should return false when 'rating_togglable?' class_level reader is called" do
-        Trip.rating_togglable?.should be_false
-      end
-    
-      it "should raise 'DataMapper::Is::Rateable::TogglableRatingDisabled' when 'disable_rating!' is called" do
-        lambda { @t1.disable_rating! }.should raise_error(DataMapper::Is::Rateable::TogglableRatingDisabled)
-      end
-          
-      it "should raise 'DataMapper::Is::Rateable::TogglableRatingDisabled' when 'enable_rating!' is called" do
-        lambda { @t1.enable_rating! }.should raise_error(DataMapper::Is::Rateable::TogglableRatingDisabled)
-      end
-    
-    end
-    
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-      
-    shared_examples "every rateable where anonymous ratings can be toggled" do
-      
-      it "should return true when 'anonymous_rating_togglable?' class_level reader is called" do
-        Trip.anonymous_rating_togglable?.should be_true
-      end
-    
-      it "should allow to disable and reenable anonymous ratings for itself" do
-        @t1.disable_anonymous_rating!
-        @t1 = Trip.get(1)
-        @t1.anonymous_rating_enabled?.should be_false
-        lambda { @t1.rate(1) }.should raise_error(DataMapper::Is::Rateable::AnonymousRatingDisabled)
-        @t1.enable_anonymous_rating!
-        @t1 = Trip.get(1)
-        @t1.anonymous_rating_enabled?.should be_true
-        lambda { @t1.rate(1) }.should_not raise_error
-      end
-    
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    
-    shared_examples "every rateable where anonymous ratings can't be toggled" do
-      
-      it "should return false when 'anonymous_rating_togglable?' class_level reader is called" do
-        Trip.anonymous_rating_togglable?.should be_false
-      end
-    
-      it "should raise 'DataMapper::Is::Rateable::TogglableRatingDisabled' when 'disable_anonymous_rating!' is called" do
-        lambda { @t1.disable_anonymous_rating! }.should raise_error(DataMapper::Is::Rateable::TogglableAnonymousRatingDisabled)
-      end
-          
-      it "should raise 'DataMapper::Is::Rateable::TogglableRatingDisabled' when 'enable_anonymous_rating!' is called" do
-        lambda { @t1.enable_anonymous_rating! }.should raise_error(DataMapper::Is::Rateable::TogglableAnonymousRatingDisabled)
-      end
-    
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
+  end
 
-    shared_examples "every anonymized timestamped rating" do
-    
-      it "should store timestamps for every anonymous rating" do
-        if @t1.anonymous_rating_enabled?
-          @t1.rate(5)
-          @t1.ratings[0].should respond_to(:created_at)
-          @t1.ratings[0].should respond_to(:updated_at)
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  describe 'when rateable twice by same rater' do
+    it 'raises error' do
+      expect {
+        setup_rateable.call do
+          is :rateable, :by => :users, :as => :special_ratings
+          is :rateable, :by => :users, :as => :regular_ratings
+        end
+      }.to raise_error
+    end
+  end
+
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  describe 'is :rateable, :by => :users with enhancements' do
+    before do
+      setup_rateable.call do
+        is :rateable, :by => :users do
+          def extra_method; true; end
         end
       end
-  
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
 
-    shared_examples "every anonymized non-timestamped rating" do
-    
-      it "should store timestamps for every anonymous rating" do
-        if @t1.anonymous_rating_enabled?
-          @t1.rate(5)
-          @t1.ratings[0].should_not respond_to(:created_at)
-          @t1.ratings[0].should_not respond_to(:updated_at)
-        end
+      [TripUserRating].each(&:auto_migrate!)
+    end
+
+    describe :rating do
+      let(:rater) { User.create }
+      let(:rateable) { Trip.create }
+      let(:rating) { rateable.rate(1,rater) }
+
+      subject{ rating }
+
+      it { should respond_to(:extra_method) }
+      its(:extra_method) { should be_true }
+    end
+  end
+
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  describe 'is :rateable, :by => :users, :model => not implemented' do
+#    before do
+#      setup_rateable.call do
+#        is :rateable, :by => :users, :model => 'AwkwardRating'
+#      end
+#
+#      [AwkwardRating].each(&:auto_migrate!)
+#    end
+#
+#    it_behaves_like :rateable_model do
+#      let(:rateable_model) { Trip }
+#    end
+
+    it ':model option not implemented' do
+      expect{ setup_rateable.call do
+        is :rateable, :by => :users, :model => 'AwkwardRating'
+      end }.to raise_error(NotImplementedError)
+    end
+  end
+
+  # --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  describe 'rateable model' do
+    before do
+      setup_rateable.call do
+        is :rateable, :by => :users
       end
-  
-    end
-       
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
 
-    shared_examples "every personalized timestamped rating" do
-    
-      it "should store timestamps for every personalized rating" do
-        if @t1.rating_enabled?
-          @t1.rate(5, @u1)
-          @t1.ratings[0].should respond_to(:created_at)
-          @t1.ratings[0].should respond_to(:updated_at)
-        end
+      [TripUserRating].each(&:auto_migrate!)
+    end
+
+    let(:rateable_model){ Trip }
+    let(:rater_model)   { User }
+    let(:rating_model)  { TripUserRating }
+
+    # #rating_config_for
+    describe '#rating_config_for' do
+
+      context 'when user model passed' do
+        subject{ rateable_model.rating_config_for(rater_model) }
+
+        it{ should be_a(Hash) }
+        its([:by]){ should include(:model => rater_model.name) }
       end
-  
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
 
-    shared_examples "every personalized non-timestamped rating" do
-    
-      it "should not store timestamps for every personalized rating" do
-        if @t1.rating_enabled?
-          @t1.rate(5, @u1)
-          @t1.ratings[0].should_not respond_to(:created_at)
-          @t1.ratings[0].should_not respond_to(:updated_at)
-        end
-      end
-  
-    end
-      
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
+      context 'when association name passed' do
+        let(:assoc) { :users }
+        subject{ rateable_model.rating_config_for(assoc) }
 
-    shared_examples "every aliased rating" do
-    
-      it "should set the specified alias on the 'ratings' reader" do
-        @t1.respond_to?(:my_trip_ratings).should be_true
-      end
-  
-    end
-
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-  
-    shared_examples "every enabled rating" do
-      
-      it "should have ratings enabled" do
-        @t1.rating_enabled?.should be_true
-        @t1.rating_disabled?.should be_false
+        it{ should be_a(Hash) }
+        its([:by]) { should include(:name => assoc.to_s.singularize.to_sym) }
+        its([:by]) { should include(:model => rater_model.name) }
       end
       
     end
-            
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-  
-    shared_examples "every disabled rating" do
-      
-      it "should have ratings disabled" do
-        @t1.rating_enabled?.should be_false
-        @t1.rating_disabled?.should be_true
-      end
-      
-    end
-        
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-  
-    shared_examples "every enabled anonymized rating" do
-      
-      it "should have anonymized ratings enabled" do
-        @t1.anonymous_rating_enabled?.should be_true
-        @t1.anonymous_rating_disabled?.should be_false
-      end
-      
-      it "should accept allowed rating values from anonymous users" do
-        Trip.allowed_ratings = (0..4)
-        lambda { @t1.rate(-1) }.should raise_error(DataMapper::Is::Rateable::ImpossibleRatingValue)
-        lambda { @t1.rate( 0) }.should_not raise_error
-        lambda { @t1.rate( 4) }.should_not raise_error
-        lambda { @t1.rate( 5) }.should raise_error(DataMapper::Is::Rateable::ImpossibleRatingValue)
-      end
-      
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-     
-    shared_examples "every disabled anonymized rating" do
-      
-      it "should have anonymized ratings disabled" do
-        @t1.anonymous_rating_disabled?.should be_true
-        @t1.anonymous_rating_enabled?.should be_false
-      end
-      
-      it "should not allow any ratings from anonymous users" do
-        lambda { @t1.rate(-1) }.should raise_error(DataMapper::Is::Rateable::ImpossibleRatingValue)
-        lambda { @t1.rate( 0) }.should raise_error(DataMapper::Is::Rateable::AnonymousRatingDisabled)
-        lambda { @t1.rate( 5) }.should raise_error(DataMapper::Is::Rateable::AnonymousRatingDisabled)
-        lambda { @t1.rate( 6) }.should raise_error(DataMapper::Is::Rateable::ImpossibleRatingValue)
-      end
-    
-    end
-  
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    
-    shared_examples "every enabled personalized rating" do
-      
-      it "should accept allowed rating values from existing users" do
-        Trip.allowed_ratings = (0..4)
-        lambda { @t1.rate(-1, @u1) }.should raise_error(DataMapper::Is::Rateable::ImpossibleRatingValue)
-        lambda { @t1.rate( 0, @u1) }.should_not raise_error
-        lambda { @t1.rate( 4, @u1) }.should_not raise_error
-        lambda { @t1.rate( 5, @u1) }.should raise_error(DataMapper::Is::Rateable::ImpossibleRatingValue)
-      end
-    
-      it "should allow to access any user's current remixed rating model instance" do
-        @t1.user_rating(@u1).should be_nil
-        @t1.user_rating(@u2).should be_nil
-        @t1.rate(5, @u1)
-        @t1.user_rating(@u1).should == TripRating.get(1)
-        @t1.user_rating(@u2).should be_nil
-        @t1.rate(5, @u2)
-        @t1.user_rating(@u1).should == TripRating.get(1)
-        @t1.user_rating(@u2).should == TripRating.get(2)
-      end
-    
-      it "should store exactly one rating at any time for any given user" do
-        @t1.rate(3, @u1)
-        @t1.rate(5, @u1)
-        TripRating.count.should == 1
-        @t1.rate(3, @u2)
-        @t1.rate(5, @u2)
-        TripRating.count.should == 2
-      end
-    
-      it "should allow any user to rate multiple times without compromising the total_rating" do
-        @t1.rate(5, @u1)
-        @t2.rate(3, @u2)
-        @t1.rating.should == 5
-        @t2.rating.should == 3
-        TripRating.total_rating.should == 4
-        Trip.total_rating.should == 4
-        @t1.rate(3, @u1)
-        @t2.rate(1, @u2)
-        @t1.rating.should == 3
-        @t2.rating.should == 1
-        TripRating.total_rating.should == 2
-        Trip.total_rating.should == 2
-      end
-    
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-  
-    shared_examples "every disabled personalized rating" do
-    
-      it "should not allow any ratings from any existing user" do
-        lambda { @t1.rate(-1, @u1) }.should raise_error(DataMapper::Is::Rateable::RatingDisabled)
-        lambda { @t1.rate( 0, @u1) }.should raise_error(DataMapper::Is::Rateable::RatingDisabled)
-        lambda { @t1.rate( 5, @u1) }.should raise_error(DataMapper::Is::Rateable::RatingDisabled)
-        lambda { @t1.rate( 6, @u1) }.should raise_error(DataMapper::Is::Rateable::RatingDisabled)
-      end
-    
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-  
-    shared_examples "allowed_ratings have not been changed" do
-    
-      it "should allow ratings between (0..5)" do
-        Trip.allowed_ratings.should == (0..5)
-      end
-  
-    end
-        
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-  
-    shared_examples "rater association has not been changed" do
-    
-      it "should return the name of the rater association" do
-        @t1.rater.should == :user
-      end
-  
-    end
-    
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    
-    
-    describe "Trip.is(:rateable, :rater => :user)" do
-    
-      before do
-      
-        unload_rating_infrastructure "Trip", "User"
-        
-        class User
-          include DataMapper::Resource
-          property :id, Serial
-        end
-      
-        class Trip
-          
-          include DataMapper::Resource
-          
-          property :id, Serial
-        
-          is :rateable, :rater => :user
-          
-        end
-        
-        User.auto_migrate!
-        Trip.auto_migrate!
-        TripRating.auto_migrate!
 
-        @u1 = User.create(:id => 1)
-        @u2 = User.create(:id => 2)
-        @t1 = Trip.create(:id => 1)
-        @t2 = Trip.create(:id => 2)
-      
-      end
-    
-      it_should_behave_like "every rating"
-      it_should_behave_like "every enabled rating"
-      it_should_behave_like "every disabled anonymized rating"
-      it_should_behave_like "every enabled personalized rating"
-      it_should_behave_like "every personalized timestamped rating"
-      it_should_behave_like "every anonymized timestamped rating"
-      it_should_behave_like "every rateable where ratings can't be toggled"
-      it_should_behave_like "every rateable where anonymous ratings can't be toggled"
-      it_should_behave_like "allowed_ratings have not been changed"
-      it_should_behave_like "rater association has not been changed"
-    
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    
-    describe "Trip.is(:rateable, :rater => :user) with togglable anonymity/rateability" do
-    
-      before do
-      
-        unload_rating_infrastructure "Trip", "User"
-        
-        class User
-          include DataMapper::Resource
-          property :id, Serial
-        end
-      
-        class Trip
-          include DataMapper::Resource
-          property :id, Serial
-          
-          #property :rating_enabled,           Boolean, :nullable => false, :default => true
-          #property :anonymous_rating_enabled, Boolean, :nullable => false, :default => true
+    # #rating_model_for
+    describe '#rating_model_for' do
+      context 'when user model passed' do
+        subject{ rateable_model.rating_model_for(rater_model) }
 
-          property :rating_enabled,           Boolean, :required => true, :default => true
-          property :anonymous_rating_enabled, Boolean, :required => true, :default => true
-        
-          # will define TripRating
-          is :rateable, :rater => :user # TODO this is the original, but it causes an validation error because :required => true
-          #is :rateable, :rater => {:name => :user_id, :required => false}
-        end
-        
-        User.auto_migrate!
-        Trip.auto_migrate!
-        TripRating.auto_migrate!
-    
-        @u1 = User.create(:id => 1)
-        @u2 = User.create(:id => 2)
-        @t1 = Trip.create(:id => 1)
-        @t2 = Trip.create(:id => 2)
-      
-      end
-    
-      it_should_behave_like "every rating"
-      it_should_behave_like "every enabled rating"
-      it_should_behave_like "every enabled anonymized rating"
-      it_should_behave_like "every enabled personalized rating"
-      it_should_behave_like "every personalized timestamped rating"
-      it_should_behave_like "every anonymized timestamped rating"
-      it_should_behave_like "allowed_ratings have not been changed"
-      it_should_behave_like "rater association has not been changed"
-      it_should_behave_like "every rateable where ratings can be toggled"
-      it_should_behave_like "every rateable where anonymous ratings can be toggled"
-    
-    end
-
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-        
-    describe "Trip.is(:rateable, :rater => :user, :as => :my_trip_ratings) without additional properties" do
-    
-      before do
-      
-        unload_rating_infrastructure "Trip", "User"
-        
-        class User
-          include DataMapper::Resource
-          property :id, Serial
-        end
-      
-        class Trip
-          include DataMapper::Resource
-          property :id, Serial
-        
-          # will define TripRating
-          is :rateable, :rater => :user, :as => :my_trip_ratings
-        end
-        
-        User.auto_migrate!
-        Trip.auto_migrate!
-        TripRating.auto_migrate!
-    
-        @u1 = User.create(:id => 1)
-        @u2 = User.create(:id => 2)
-        @t1 = Trip.create(:id => 1)
-        @t2 = Trip.create(:id => 2)
-      
-      end
-    
-      it_should_behave_like "every rating"
-      it_should_behave_like "every enabled rating"
-      it_should_behave_like "every disabled anonymized rating"
-      it_should_behave_like "every enabled personalized rating"
-      it_should_behave_like "every personalized timestamped rating"
-      it_should_behave_like "every anonymized timestamped rating"
-      it_should_behave_like "every rateable where ratings can't be toggled"
-      it_should_behave_like "every rateable where anonymous ratings can't be toggled"
-      it_should_behave_like "allowed_ratings have not been changed"
-      it_should_behave_like "rater association has not been changed"
-      it_should_behave_like "every aliased rating"
-    
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    
-    describe "Trip.is(:rateable, :rater => :user, :as => :my_trip_ratings) with togglable anonymity/rateability" do
-    
-      before do
-      
-        unload_rating_infrastructure "Trip", "User"
-        
-        class User
-          include DataMapper::Resource
-          property :id, Serial
-        end
-      
-        class Trip
-          include DataMapper::Resource
-          property :id, Serial
-          
-          #property :rating_enabled,           Boolean, :nullable => false, :default => true
-          #property :anonymous_rating_enabled, Boolean, :nullable => false, :default => true
-
-          property :rating_enabled,           Boolean, :required => true, :default => true
-          property :anonymous_rating_enabled, Boolean, :required => true, :default => true
-        
-          # will define TripRating
-          is :rateable, :rater => :user, :as => :my_trip_ratings
-        end
-        
-        User.auto_migrate!
-        Trip.auto_migrate!
-        TripRating.auto_migrate!
-    
-        @u1 = User.create(:id => 1)
-        @u2 = User.create(:id => 2)
-        @t1 = Trip.create(:id => 1)
-        @t2 = Trip.create(:id => 2)
-      
-      end
-    
-      it_should_behave_like "every rating"
-      it_should_behave_like "every enabled rating"
-      it_should_behave_like "every enabled anonymized rating"
-      it_should_behave_like "every enabled personalized rating"
-      it_should_behave_like "every personalized timestamped rating"
-      it_should_behave_like "every anonymized timestamped rating"
-      it_should_behave_like "allowed_ratings have not been changed"
-      it_should_behave_like "rater association has not been changed"
-      it_should_behave_like "every rateable where ratings can be toggled"
-      it_should_behave_like "every rateable where anonymous ratings can be toggled"
-      it_should_behave_like "every aliased rating"
-    
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-        
-    describe "Trip.is(:rateable, :rater => :user, :timestamps => false) without additional properties" do
-    
-      before do
-      
-        unload_rating_infrastructure "Trip", "User"
-        
-        class User
-          include DataMapper::Resource
-          property :id, Serial
-        end
-      
-        class Trip
-          include DataMapper::Resource
-          property :id, Serial
-        
-          # will define TripRating
-          is :rateable, :rater => :user, :timestamps => false
-        end
-        
-        User.auto_migrate!
-        Trip.auto_migrate!
-        TripRating.auto_migrate!
-    
-        @u1 = User.create(:id => 1)
-        @u2 = User.create(:id => 2)
-        @t1 = Trip.create(:id => 1)
-        @t2 = Trip.create(:id => 2)
-      
-      end
-    
-      it_should_behave_like "every rating"
-      it_should_behave_like "every enabled rating"
-      it_should_behave_like "every disabled anonymized rating"
-      it_should_behave_like "every enabled personalized rating"
-      it_should_behave_like "every personalized non-timestamped rating"
-      it_should_behave_like "every anonymized non-timestamped rating"
-      it_should_behave_like "every rateable where ratings can't be toggled"
-      it_should_behave_like "every rateable where anonymous ratings can't be toggled"
-      it_should_behave_like "allowed_ratings have not been changed"
-      it_should_behave_like "rater association has not been changed"
-    
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    
-    describe "Trip.is(:rateable, :rater => :user, :timestamps => false) with togglable anonymity/rateability" do
-    
-      before do
-      
-        unload_rating_infrastructure "Trip", "User"
-        
-        class User
-          include DataMapper::Resource
-          property :id, Serial
-        end
-      
-        class Trip
-          include DataMapper::Resource
-          property :id, Serial
-          
-          #property :rating_enabled,           Boolean, :nullable => false, :default => true
-          #property :anonymous_rating_enabled, Boolean, :nullable => false, :default => true
-
-          property :rating_enabled,           Boolean, :required => true, :default => true
-          property :anonymous_rating_enabled, Boolean, :required => true, :default => true
-        
-          # will define TripRating
-          is :rateable, :rater => :user, :timestamps => false
-        end
-        
-        User.auto_migrate!
-        Trip.auto_migrate!
-        TripRating.auto_migrate!
-    
-        @u1 = User.create(:id => 1)
-        @u2 = User.create(:id => 2)
-        @t1 = Trip.create(:id => 1)
-        @t2 = Trip.create(:id => 2)
-      
-      end
-    
-      it_should_behave_like "every rating"
-      it_should_behave_like "every enabled rating"
-      it_should_behave_like "every enabled anonymized rating"
-      it_should_behave_like "every enabled personalized rating"
-      it_should_behave_like "every personalized non-timestamped rating"
-      it_should_behave_like "every anonymized non-timestamped rating"
-      it_should_behave_like "allowed_ratings have not been changed"
-      it_should_behave_like "rater association has not been changed"
-      it_should_behave_like "every rateable where ratings can be toggled"
-      it_should_behave_like "every rateable where anonymous ratings can be toggled"
-    
-    end
-    
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-        
-    describe "Trip.is(:rateable, :rater => :account) without additional properties" do
-    
-      before do
-      
-        unload_rating_infrastructure "Trip", "User"
-        
-        class Account
-          include DataMapper::Resource
-          property :id, Serial
-        end
-      
-        class Trip
-          include DataMapper::Resource
-          property :id, Serial
-        
-          # will define TripRating
-          is :rateable, :rater => :account
-        end
-        
-        Account.auto_migrate!
-        Trip.auto_migrate!
-        TripRating.auto_migrate!
-    
-        @u1 = Account.create(:id => 1)
-        @u2 = Account.create(:id => 2)
-        @t1 = Trip.create(:id => 1)
-        @t2 = Trip.create(:id => 2)
-      
-      end
-    
-      it_should_behave_like "every rating"
-      it_should_behave_like "every enabled rating"
-      it_should_behave_like "every disabled anonymized rating"
-      it_should_behave_like "every enabled personalized rating"
-      it_should_behave_like "every personalized timestamped rating"
-      it_should_behave_like "every anonymized timestamped rating"
-      it_should_behave_like "every rateable where ratings can't be toggled"
-      it_should_behave_like "every rateable where anonymous ratings can't be toggled"
-      it_should_behave_like "allowed_ratings have not been changed"
-    
-      it "should return the name of the rater association" do
-        @t1.rater.should == :account
-      end
-    
-    end
-  
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-
-    describe "Trip.is(:rateable) without additional properties" do
-
-      before do
-
-        unload_rating_infrastructure "Trip"
-
-        class Account
-          include DataMapper::Resource
-          property :id, Serial
-        end
-
-        class Trip
-          include DataMapper::Resource
-          property :id, Serial
-
-          # will define TripRating
-          is :rateable
-        end
-
-        Account.auto_migrate!
-        Trip.auto_migrate!
-        TripRating.auto_migrate!
-
-        @t1 = Trip.create(:id => 1)
-        @t2 = Trip.create(:id => 2)
-
+        it{ should == rating_model }
       end
 
-      it_should_behave_like "every rating"
-      it_should_behave_like "every enabled rating"
-      it_should_behave_like "every rateable where ratings can't be toggled"
-      it_should_behave_like "every rateable where anonymous ratings can't be toggled"
-      it_should_behave_like "allowed_ratings have not been changed"
+      context 'when association name passed' do
+        let(:assoc) { :users }
+        subject{ rateable_model.rating_model_for(assoc) }
 
-    end
-
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    describe '#rate' do
-      before do
-        unload_rating_infrastructure 'Trip', 'User'
-
-        class User
-          include DataMapper::Resource
-          property :id, Serial
-        end
-        
-        class Trip
-          include DataMapper::Resource
-          property :id, Serial
-
-          # will define TripRating
-          is :rateable, :rater => :user
-        end
-        
-        User.auto_migrate!
-        Trip.auto_migrate!
-        TripRating.auto_migrate!
-      end
-      subject{ trip.rate(2, user) }
-      let!(:trip) { Trip.create }
-      let!(:user) { User.create }
-      
-      it 'creates a new record' do
-        expect{ subject }.to change{TripRating.count}.by(1)
-      end
-      
-      its(:created_at){ should_not be_nil }
-
-      context 'when called then' do
-        let!(:rating) { subject }
-        it '' do
-          trip.ratings[0].should == rating
-        end
-      end
-    end
-    
-    # --------------------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------------
-    describe 'is multi-rateable', :focus => true do
-      before do
-        unload_rating_infrastructure 'Trip', 'User'
-        unload_rating_infrastructure 'Trip', 'Party'
-
-        class User
-          include DataMapper::Resource
-          property :id, Serial
-        end
-        class Party
-          include DataMapper::Resource
-          property :id, Serial
-        end
-        
-        class Trip
-          include DataMapper::Resource
-          property :id, Serial
-
-          # will define TripRating
-          is :rateable, :as => :user_ratings, :rater => :user
-          is :rateable, :as => :party_ratings, :rater => :party
-          
-          enhance :ratings do
-            def test; :a ; end
-          end
-        end
-        
-        User.auto_migrate!
-        Party.auto_migrate!
-        Trip.auto_migrate!
-        TripRating.auto_migrate!
-      end
-      
-      let!(:trip) { Trip.create }
-      let!(:user) { User.create }
-      let!(:party) { Party.create }
-
-      shared_examples :enhanced_ratings do
-        it '' do
-          #p Trip.remixables
-          #Trip.remixables.should have(2).keys
-        end
-        #it '' do
-        #  trip.user_ratings
-        #end
-      end
-
-      context 'user rates' do
-        subject{ trip.rate(2,user) }
-        it 'creates a new record' do
-          expect{ subject }.to change{TripRating.count}.by(1)
-        end
-        it_should_behave_like :enhanced_ratings
-      end
-
-      context 'party rates' do
-        subject{ trip.rate(2,party) }
-        it 'creates a new record' do
-          expect{ subject }.to change{TripRating.count}.by(1)
-        end
-        it_should_behave_like :enhanced_ratings
+        it{ should == rating_model }
       end
     end
 
+=begin
+    # #average_rating_for
+    describe '#average_rating_for' do
+      let(:rateable) { rateable_model.create }
+      subject{ rateable_model.average_rating_of(rateable,rater_model) }
+
+      context 'when no ratings exist' do
+        it{ should be_nil }
+      end
+
+      context 'when a rating exists' do
+        let(:rater)   { rater_model.create }
+        let(:value)   { 2 }
+        let!(:rating) { rateable.rate(value, rater) }
+
+        it{ should == value }
+      end
+
+      context 'when multiple ratings exist' do
+        let(:raters)    { 3.times.map{ rater_model.create } }
+        let(:value)     { rand(5) }
+        let!(:ratings)  { raters.map{ |r| rateable.rate(value, r) } }
+
+        it{ should == ratings.map(&:rating).sum.to_f / ratings.length }
+      end
+      
+    end
+=end
+    
+  end
+
+  describe 'rateable' do
+    before do
+      setup_rateable.call do
+        is :rateable, :by => :users
+      end
+
+      [TripUserRating].each(&:auto_migrate!)
+    end
+
+    let(:rateable_model){ Trip }
+    let(:rater_model)   { User }
+
+    let(:rateable) { Trip.create }
+
+    # #average_rating_of(User)
+    # #average_rating_of(:users)
+    describe '#average_rating_of' do
+      subject{ rateable.average_rating_of(param) }
+
+      shared_examples 'average ratings' do
+        let(:rater)   { User.create }
+        
+        context 'when no ratings present' do
+          it { should be_nil }
+        end
+
+        context 'when one rating present' do
+          let!(:rating) { rateable.rate(2, rater) }
+
+          it{ should == rating.rating }
+        end
+
+        context 'when ratings of multiple users present' do
+          let!(:ratings) { 4.times.map{ (0..5).to_a.sample } }
+          before{ ratings.each{ |r| rateable.rate(r, User.create) } }
+
+          it{ should == ratings.sum.to_f / ratings.length }
+        end
+
+        context 'when ratings on other rateables are present too' do
+          let(:other_rateable) { rateable_model.create }
+          let!(:ratings) { 4.times.map{ (0..5).to_a.sample } }
+          before{
+            ratings.each{ |r| rateable.rate(r, User.create) }
+            4.times{ other_rateable.rate((0..5).to_a.sample, User.create) }
+          }
+
+          it{ should == ratings.sum.to_f / ratings.length }
+        end
+      end
+
+      context 'when passing class' do
+        let(:param) { rater.class }
+
+        it_behaves_like 'average ratings'
+      end
+
+      context 'when passing :users' do
+        let(:param) { :users }
+
+        it_behaves_like 'average ratings'
+      end
+    end#average_rating_of
+
+    
   end
 
 end
+
