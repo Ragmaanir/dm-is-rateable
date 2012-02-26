@@ -39,7 +39,111 @@ describe DataMapper::Is::Rateable do
     [Trip,Account,User]
   }
 
-  after { unload_consts('User','Account','Trip','TripUserRating','TripAccountRating') }
+  after do
+		unload_consts('User','Account','Trip','TripUserRating','TripAccountRating')
+	end
+
+	# --------------------------------------------------------------------------------------------------
+	#
+	# SHARED CONTEXTS
+	#
+  # --------------------------------------------------------------------------------------------------
+
+	# ----------------------------------------
+	shared_context 'is :rateable, :by => :users', :rateable => :by_users do
+		before do
+			setup_rateable.call do
+				is :rateable, :by => :users
+			end
+
+			[TripUserRating].each(&:auto_migrate!)
+		end
+
+		let(:rateable_class)	{ Trip }
+		let(:rating_class)		{ TripUserRating }
+		let(:rater_class)			{ User }
+	end
+
+	# ----------------------------------------
+	shared_context 'is :rateable, :by => User', :rateable => :by_user_model do
+		before do
+			setup_rateable.call do
+				is :rateable, :by => User
+			end
+
+			[TripUserRating].each(&:auto_migrate!)
+		end
+
+		let(:rateable_class)	{ Trip }
+		let(:rating_class)		{ TripUserRating }
+		let(:rater_class)			{ User }
+	end
+
+	# ----------------------------------------
+	shared_context 'is :rateable, :by => :accounts', :rateable => :by_accounts do
+		before do
+			setup_rateable.call do
+				is :rateable, :by => :accounts
+			end
+
+			[TripAccountRating].each(&:auto_migrate!)
+		end
+
+		let(:rateable_class)	{ Trip }
+		let(:rating_class)		{ TripAccountRating }
+		let(:rater_class)			{ Account }
+	end
+
+		# ----------------------------------------
+	shared_context 'is :rateable, :by => Account', :rateable => :by_account_model do
+		before do
+			setup_rateable.call do
+				is :rateable, :by => Account
+			end
+
+			[TripAccountRating].each(&:auto_migrate!)
+		end
+
+		let(:rateable_class)	{ Trip }
+		let(:rating_class)		{ TripAccountRating }
+		let(:rater_class)			{ Account }
+	end
+
+	# ----------------------------------------
+	shared_context 'is :rateable, :by => :users, :as => :special_ratings', :rateable => :by_users_as_special_ratings do
+		before do
+			setup_rateable.call do
+				is :rateable, :by => :users, :as => :special_ratings
+			end
+
+			[TripUserRating].each(&:auto_migrate!)
+		end
+
+		let(:rateable_class)	{ Trip }
+		let(:rating_class)		{ TripUserRating }
+		let(:rater_class)			{ User }
+	end
+
+	# ----------------------------------------
+	shared_context 'is :rateable, :by => {:name => :author, :key => :user_id}', :rateable => :by_author_user_id do
+		before do
+			setup_rateable.call do
+				is :rateable, :by => {:name => :author, :key => :user_id}
+			end
+
+			[TripUserRating].each(&:auto_migrate!)
+		end
+
+		let(:rateable_class)	{ Trip }
+		let(:rating_class)		{ TripUserRating }
+		let(:rater_class)			{ User }
+	end
+
+	# --------------------------------------------------------------------------------------------------
+	#
+	# SHARED EXAMPLES
+	#
+  # --------------------------------------------------------------------------------------------------
 
   # --------------------------------------------------------------------------------------------------
   # --------------------------------------------------------------------------------------------------
@@ -147,6 +251,12 @@ describe DataMapper::Is::Rateable do
       end
     end
   end
+
+	# --------------------------------------------------------------------------------------------------
+	#
+	# EXAMPLES
+	#
+  # --------------------------------------------------------------------------------------------------
   
   # --------------------------------------------------------------------------------------------------
   # --------------------------------------------------------------------------------------------------
@@ -304,17 +414,6 @@ describe DataMapper::Is::Rateable do
   # --------------------------------------------------------------------------------------------------
   # --------------------------------------------------------------------------------------------------
   describe 'is :rateable, :by => :users, :model => not implemented' do
-#    before do
-#      setup_rateable.call do
-#        is :rateable, :by => :users, :model => 'AwkwardRating'
-#      end
-#
-#      [AwkwardRating].each(&:auto_migrate!)
-#    end
-#
-#    it_behaves_like :rateable_model do
-#      let(:rateable_model) { Trip }
-#    end
 
     it ':model option not implemented' do
       expect{ setup_rateable.call do
@@ -325,18 +424,26 @@ describe DataMapper::Is::Rateable do
 
   # --------------------------------------------------------------------------------------------------
   # --------------------------------------------------------------------------------------------------
-  describe 'rateable model' do
-    before do
-      setup_rateable.call do
-        is :rateable, :by => :users
-      end
+  describe 'Rateable Class' do
+#    before do
+#      setup_rateable.call do
+#        is :rateable, :by => :users
+#      end
+#
+#      [TripUserRating].each(&:auto_migrate!)
+#    end
+#
+#    let(:rateable_model){ Trip }
+#    let(:rater_model)   { User }
+#    let(:rating_model)  { TripUserRating }
 
-      [TripUserRating].each(&:auto_migrate!)
-    end
+		describe '#rateable_fk' do
+			subject{ rateable_model.rateable_fk }
 
-    let(:rateable_model){ Trip }
-    let(:rater_model)   { User }
-    let(:rating_model)  { TripUserRating }
+			context 'when ' do
+				it{ should == :trip_id }
+			end
+		end
 
     # #rating_config_for
     describe '#rating_config_for' do
@@ -406,7 +513,9 @@ describe DataMapper::Is::Rateable do
     
   end
 
-  describe 'rateable' do
+	# --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+  describe 'Rateable Instance' do
     before do
       setup_rateable.call do
         is :rateable, :by => :users
@@ -469,9 +578,99 @@ describe DataMapper::Is::Rateable do
         it_behaves_like 'average ratings'
       end
     end#average_rating_of
-
     
   end
 
+	# --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+	describe 'Rater' do
+
+		describe 'Class' do
+			subject{ rater_class }
+
+			#shared_examples :relationships do
+			#	its(:relationships) { should be_named(:trip_user_ratings) }
+			#end
+
+			describe 'when rateable, :by => :users' do
+				include_context 'is :rateable, :by => :users' # FIXME rspec issue
+				its(:relationships) { should be_named(:trip_user_ratings) }
+			end
+
+			describe 'when rateable, :by => User' do
+				include_context 'is :rateable, :by => User' # FIXME rspec issue
+				its(:relationships) { should be_named(:trip_user_ratings) }
+			end
+		end#Class
+
+		describe 'Instance' do
+
+		end#Instance
+	end
+
+	# --------------------------------------------------------------------------------------------------
+  # --------------------------------------------------------------------------------------------------
+	describe 'Rating' do
+		describe 'Class' do
+			subject{ rating_class }
+
+			shared_examples :default_properties do
+				subject{ rating_class.properties }
+				#it { should be_named(:user_id) }
+				it { should be_named(:trip_id) }
+				it { should be_named(:rating) }
+			end
+			
+			#describe 'when rateable by :users', :rateable => :by_users do
+			describe 'when rateable by :users' do
+				include_context 'is :rateable, :by => :users' # FIXME rspec issue
+				it_behaves_like :default_properties do
+					it { should be_named(:user_id) }
+				end
+			end
+
+			describe 'when rateable by User' do
+				include_context 'is :rateable, :by => User'
+				it_behaves_like :default_properties do
+					it { should be_named(:user_id) }
+				end
+			end
+
+			describe 'when rateable by Account' do
+				include_context 'is :rateable, :by => Account'
+				it_behaves_like :default_properties do
+					it { should be_named(:account_id) }
+				end
+			end
+
+			describe 'when rateable by :accounts' do
+				include_context 'is :rateable, :by => :accounts'
+				it_behaves_like :default_properties do
+					it { should be_named(:account_id) }
+				end
+			end
+
+			describe 'when rateable by :users as :special_ratings' do
+				include_context 'is :rateable, :by => :users, :as => :special_ratings'
+				it_behaves_like :default_properties do
+					it { should be_named(:user_id) }
+				end
+			end
+
+			describe 'when is :rateable, :by => {:name => :author, :key => :user_id}' do
+				include_context 'is :rateable, :by => {:name => :author, :key => :user_id}'
+				it_behaves_like :default_properties do
+					it { should be_named(:user_id) }
+				end
+			end
+		end
+
+		describe 'Instance' do
+
+		end
+	end
+
 end
+
+
 

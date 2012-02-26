@@ -8,5 +8,5 @@ lib/dm-is-rateable.rb
 lib/dm-is-rateable/is/rateable.rb
 lib/dm-is-rateable/is/version.rb
 spec/integration/rateable_spec.rb
-spec/spec.opts
 spec/spec_helper.rb
+.rspec

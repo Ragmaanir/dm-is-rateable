@@ -38,14 +38,13 @@ class Trip
   # allowing the following options:
   #
   # options = {
-  #  :rater => { :name => :user_id, :type => Integer },
-  #  :allowed_ratings => (0..5),
+  #  :by => { :key => :user_id, :type => Integer },
+  #  :with => (0..5),
   #  :timestamps => true,
-  #  :as => nil,                     # if symbol/string then add an alias by that name on has n, :ratings
-  #  :class_name => "#{self}Rating"  # class_name to use for generated remixed model
+  #  :as => nil                     # if symbol/string then add an alias by that name on has n, :ratings
   # }
   
-  is :rateable #, options
+  is :rateable, :by => :users
   
 end
 </code>
