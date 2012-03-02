@@ -1,6 +1,13 @@
 
 describe DataMapper::Is::Rateable do
 
+	def unload_consts(*consts)
+    consts.each do |c|
+      c = "#{c}"
+      Object.send(:remove_const, c) if Object.const_defined?(c)
+    end
+  end
+
 	# --------------------------------------------------------------------------------------------------
 	# SCENARIO
 	# --------------------------------------------------------------------------------------------------
@@ -14,7 +21,7 @@ describe DataMapper::Is::Rateable do
       include DataMapper::Resource
       property :id, Serial
 
-			is :rateable, :by => :accounts
+			is :rateable, :by => :accounts, :with => [:good,:bad]
     end
 
 		[rateable_model,rater_model,rating_model].each(&:auto_migrate!)
@@ -45,7 +52,7 @@ describe DataMapper::Is::Rateable do
 						:type => Integer,
 						:options => {:required => true, :min => 0}
 					},
-					:with => 0..5,
+					:with => [:good,:bad],
 					:as => :account_ratings,
 					:model => 'AccountTripRating',
 					:timestamps => true,
@@ -61,26 +68,26 @@ describe DataMapper::Is::Rateable do
 
 			subject{ rateable }
 
-			context 'when no rating exists' do
-				it{ rateable.average_rating_of(rater_model).should == nil }
-				its(:average_account_rating) { should == nil }
-			end
-
-			context 'when one rating exists' do
-				before{ rateable.rate(1,rater_model.create) }
-
-				it{ rateable.average_rating_of(rater_model).should == 1 }
-				its(:average_account_rating) { should == 1 }
-			end
-
-			context 'when multiple ratings exist' do
-				let(:avg) { ratings.sum.to_f/ratings.length }
-				let(:ratings) { 10.times.map{ (0..5).to_a.sample } }
-				before{ ratings.each{ |r| rateable.rate(r,rater_model.create) } }
-
-				it{ rateable.average_rating_of(rater_model).should == avg }
-				its(:average_account_rating) { should == avg }
-			end
+#			context 'when no rating exists' do
+#				it{ rateable.average_rating_of(rater_model).should == nil }
+#				its(:average_account_rating) { should == nil }
+#			end
+#
+#			context 'when one rating exists' do
+#				before{ rateable.rate(1,rater_model.create) }
+#
+#				it{ rateable.average_rating_of(rater_model).should == 1 }
+#				its(:average_account_rating) { should == 1 }
+#			end
+#
+#			context 'when multiple ratings exist' do
+#				let(:avg) { ratings.sum.to_f/ratings.length }
+#				let(:ratings) { 10.times.map{ (0..5).to_a.sample } }
+#				before{ ratings.each{ |r| rateable.rate(r,rater_model.create) } }
+#
+#				it{ rateable.average_rating_of(rater_model).should == avg }
+#				its(:average_account_rating) { should == avg }
+#			end
 		end
 	end
 
@@ -88,7 +95,7 @@ describe DataMapper::Is::Rateable do
 	# RATER
 	# --------------------------------------------------------------------------------------------------
 	describe 'Rater' do
-		
+
 		describe 'Model' do
 			subject{ rater_model }
 
@@ -98,23 +105,23 @@ describe DataMapper::Is::Rateable do
 		describe 'Instance' do
 			let(:rater) { rater_model.create }
 			subject{ rater }
-			
+
 			its(:trip_ratings) { should be_empty }
 
 			context 'when rated a rateable' do
 				let(:rateable) { rateable_model.create }
-				before{ rateable.rate(1,rater) }
+				before{ rateable.rate(:good,rater) }
 
 				its(:trip_ratings) { should have(1).entry }
-				its(:'trip_ratings.first.rating') { should == 1 }
+				its(:'trip_ratings.first.rating') { should == :good }
 			end
 
 			context 'when rated multiple rateables' do
 				let(:rateables) { 3.times.map{ rateable_model.create } }
-				before{ rateables.each{ |r| r.rate(1,rater) } }
+				before{ rateables.each{ |r| r.rate(:good,rater) } }
 
 				its(:trip_ratings) { should have(rateables.length).entries }
-				its(:'trip_ratings.first.rating') { should == 1 }
+				its(:'trip_ratings.first.rating') { should == :good }
 			end
 		end
 	end
@@ -126,7 +133,7 @@ describe DataMapper::Is::Rateable do
 
 		describe 'Model' do
 			subject{ rating_model }
-			
+
 			its(:properties) { should be_named(:trip_id) }
 			its(:properties) { should be_named(:account_id) }
 			its(:properties) { should be_named(:rating) }
@@ -144,10 +151,10 @@ describe DataMapper::Is::Rateable do
 			let(:rateable){ rateable_model.create }
 			let(:rater)		{ rater_model.create }
 			let(:rating)	{ rateable.rating_of(rater) }
-			before { rateable.rate(1,rater) }
+			before { rateable.rate(:bad,rater) }
 			subject{ rating }
 
-			its(:rating)	{ should == 1 }
+			its(:rating)	{ should == :bad }
 			its(:rateable){ should == rateable }
 			its(:rater)		{ should == rater }
 		end
