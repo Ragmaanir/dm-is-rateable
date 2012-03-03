@@ -12,7 +12,7 @@ gem 'dm-is-remixable', DM_VERSION
 gem 'dm-migrations',   DM_VERSION
 
 gem 'i18n'
-gem 'activesupport', '~> 3.1.1'
+gem 'activesupport', '>= 3.1'
 
 group(:test) do
   gem 'rspec'
