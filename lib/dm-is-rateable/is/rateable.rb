@@ -30,42 +30,6 @@ module DataMapper
               raise ImpossibleRatingType, "#{allowed_ratings.class} is no supported rating type" 
           end
         end
-        
-#        def self.infer_rater(by_option)
-#          case by_option
-#            when Symbol
-#              name = by_option.to_s.singularize
-#              {
-#                :name => name.to_sym,
-#                :model => name.classify,
-#                :key => Inflector.foreign_key(name).to_sym,
-#                :type => Integer,
-#                :options => { :required => true, :min => 0 } # FIXME only merge :min when type is integer
-#              }
-#            when Hash
-#              by_option.assert_valid_keys(:name,:key,:type,:model,:options)
-#							name = by_option[:name].to_s
-#							key = by_option[:key] || Inflector.foreign_key(name).to_sym
-#							model = key.to_s.gsub(/_id/,'').classify
-#							{
-#								:model => model,
-#								:key => key,
-#								:type => Integer,
-#								:options => { :required => true, :min => 0 } # FIXME only merge :min when type is integer
-#							}.merge(by_option)
-#						when DataMapper::Model
-#							name = by_option.name.downcase
-#              {
-#                :name => name.to_sym,
-#                :model => by_option.name,
-#                :key => Inflector.foreign_key(name).to_sym,
-#                :type => Integer,
-#                :options => { :required => true, :min => 0 } # FIXME only merge :min when type is integer
-#              }
-#            when nil then raise ":by option missing"
-#            else raise "invalid value for :by: #{by_option}"
-#          end
-#        end
 
 				#
 				#
@@ -116,23 +80,20 @@ module DataMapper
 					concern = options[:concerning].to_s || ''
 					rating_name = "#{concern.camelize}Rating"
 					rateable_name = clz.name
-
-					#model = options[:model] || "#{rateable_name}#{rating_name}By#{rater[:model]}"
+					
 					model = options[:model] || "#{rater[:model]}#{rateable_name}#{rating_name}"
-					#as = model.underscore.pluralize.gsub("#{self.name.underscore}_",'').to_sym
 					as = options[:as]
 					as ||= if options[:model]
-						model.underscore.pluralize.gsub("#{rateable_name.underscore}_",'')
-					else
-						#"ratings_by_#{rater[:name].to_s.pluralize}".to_sym
-						concern_part = concern.blank? ? '' : "_#{concern}"
-						"#{rater[:name]}#{concern_part}_ratings"
-					end.to_sym
+							model.underscore.pluralize.gsub("#{rateable_name.underscore}_",'')
+						else
+							#"ratings_by_#{rater[:name].to_s.pluralize}".to_sym
+							concern_part = concern.blank? ? '' : "_#{concern}"
+							"#{rater[:name]}#{concern_part}_ratings"
+						end.to_sym
 
 					options = {
 						:with => 0..5,
 						:by => rater,
-						#:as => "#{rater[:name]}_ratings".to_sym,
 						:as => as,
 						:timestamps => true,
 						:model => model,
@@ -165,7 +126,6 @@ module DataMapper
 				options = Helper.complete_options(options, self)
 
 				rater = Helper.infer_rater(options[:by])
-				rating_name = options[:rating_name]
 
 				# TODO rename to ratings and make it an array
         if self.respond_to?(:rating_configs)
@@ -184,55 +144,6 @@ module DataMapper
 				configure_rating_model(rating_model, options, &enhancer)
 				configure_self(options)
 				configure_rater_model(rater[:model].constantize, options)
-
-=begin
-        remix n, Rating, :as => options[:as], :model => options[:model], :for => rater[:model]
-
-
-        # determine property type based on supplied values
-        rating_type = Helper.deduce_rating_type(options[:with])
-
-        # close on this because enhance will class_eval in remixable model scope 
-        rateable_key = self.rateable_fk
-				rateable_model = options[:model].constantize
-				rateable_name = self.name.underscore
-				parent_assocation = rateable_key.to_s.gsub(/_id/, '').to_sym
-
-        # enhance the rating model
-        enhance :rating, options[:model] do
-
-          property :rating, rating_type, :required => true
-
-          #belongs_to options[:as], model_name # XXX
-
-          if rater
-            property rater[:key], rater[:type], rater[:options]
-            belongs_to rater[:name], rater[:model]
-
-            validates_uniqueness_of rater[:key], :when => :testing_association, :scope => [parent_assocation]
-            validates_uniqueness_of rater[:key], :when => :testing_property, :scope => [rateable_key]
-          end
-          
-          timestamps(:at) if options[:timestamps]
-          
-          class_eval(&enhancer) if enhancer
-        end
-
-				# add :rater and :rateable relationships to rating model
-				rateable_model.class_eval do
-					define_method :rater do
-						send(rater[:name])
-					end
-
-					define_method :rateable do
-						send(rateable_name)
-					end
-				end
-
-				define_method("average_#{rater[:name]}_#{rating_name.underscore}") do
-          average_rating_of(rater[:model].constantize)
-        end
-=end
 
       end
 
@@ -338,14 +249,6 @@ module DataMapper
         def rating_togglable?
           self.properties.named? :rating_enabled
         end
-                
-#        def anonymous_rating_togglable?
-#          self.properties.named? :anonymous_rating_enabled
-#        end
-        
-        #def total_rating
-        #  remixables[:rating][rateable_key][:model].total_rating
-        #end
         
         def rateable_fk
           demodulized_name = DataMapper::Inflector.demodulize(self.name)
@@ -378,30 +281,16 @@ module DataMapper
         def rating_togglable?
           self.class.rating_togglable?
         end
-                
-#        def anonymous_rating_togglable?
-#          self.class.anonymous_rating_togglable?
-#        end
         
         
         def rating_enabled?
           self.rating_togglable? ? attribute_get(:rating_enabled) : true
         end
         
-#        def anonymous_rating_enabled?
-#          self.anonymous_rating_togglable? ? attribute_get(:anonymous_rating_enabled) : false
-#        end
-        
         # convenience method
         def rating_disabled?
           !self.rating_enabled?
         end
-        
-#        # convenience method
-#        def anonymous_rating_disabled?
-#          !self.anonymous_rating_enabled?
-#        end
-        
         
         def disable_rating!
           if self.rating_togglable?
@@ -424,28 +313,6 @@ module DataMapper
             raise TogglableRatingDisabled, "Ratings cannot be toggled for #{self}"
           end
         end
-        
-=begin
-        def disable_anonymous_rating!
-          if self.anonymous_rating_togglable?
-            if self.anonymous_rating_enabled?
-              self.update(:anonymous_rating_enabled => false)
-            end
-          else
-            raise TogglableAnonymousRatingDisabled, "Anonymous Ratings cannot be toggled for #{self}"
-          end
-        end
-        
-        def enable_anonymous_rating!
-          if self.anonymous_rating_togglable?
-            unless self.anonymous_rating_enabled?
-              self.update(:anonymous_rating_enabled => true)
-            end
-          else
-            raise TogglableAnonymousRatingDisabled, "Anonymous Ratings cannot be toggled for #{self}"
-          end
-        end
-=end
 				
         def rate(rating, rater)
           unless self.rating_enabled?
@@ -458,8 +325,6 @@ module DataMapper
             raise(ImpossibleRatingValue, "Rating (#{rating}) must be in #{config[:with].inspect}")
           end
 
-          #if r = self.user_rating(rater)
-          #if r = self.rating_association_for(rating_model)(rater)
           if r = self.rating_of(rater)
             if r.rating != rating
               r.update(:rating => rating) or raise
@@ -467,8 +332,6 @@ module DataMapper
           else
             # FIXME: save or raise
             res = rating_assoc_for(rater).create(config[:by][:key] => rater.id, :rating => rating)
-            #res = rating_model.create(rater_name => rater, rateable_name => self, :rating => rating)
-            #res = self.ratings.create(self.rater => user, :rating => rating)
             raise(res.errors.inspect) unless res.saved?
             res
           end
@@ -480,8 +343,9 @@ module DataMapper
         def average_rating_of(raters_or_model)
           rating_model = self.class.rating_model_for(raters_or_model)
           conditions = {self.class.rateable_fk => self.id}
-          c = rating_model.count(conditions)
-          c > 0 ? rating_model.sum(:rating, conditions).to_f / c : nil
+          c,sum = rating_model.aggregate(:rating.count, :rating.sum, conditions)
+          #c > 0 ? rating_model.sum(:rating, conditions).to_f / c : nil
+					c > 0 ? sum.to_f / c : nil
         end
 
         def rating_assoc_for(rater)
@@ -489,15 +353,11 @@ module DataMapper
           self.send(config[:as])
         end
 
-				# FIXME rating_for or rating_of???
-				
         def rating_of(rater)
           raise unless rater.is_a? DataMapper::Resource
           config = self.class.rating_config_for(rater.class)
           rating_assoc_for(rater).first(config[:by][:key] => rater.id)
         end
-
-				#alias_method :rating_for, :rating_of
         
       end
       
