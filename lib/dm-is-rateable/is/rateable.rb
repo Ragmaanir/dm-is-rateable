@@ -268,7 +268,7 @@ module DataMapper
               rating_configs.find{ |model,conf| conf[:by][:name] == raters_or_model.to_s.singularize.to_sym }.last
             when DataMapper::Model
               rating_configs.find{ |model,conf| conf[:by][:model] == raters_or_model.to_s }.last
-            else raise("invalid value: #{raters_or_model.inspect}")
+            else raise("expected model or symbol but got: #{raters_or_model.inspect}")
           end
         end
 

@@ -63,6 +63,8 @@ describe DataMapper::Is::Rateable do
 			} }
 
 			its(:relationships) { should be_named(:ratings) }
+
+			it_behaves_like :rateable_model
 		end
 
 		describe 'Instance' do
