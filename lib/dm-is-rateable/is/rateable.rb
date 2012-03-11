@@ -220,13 +220,18 @@ module DataMapper
 
 				model.timestamps(:at) if options[:timestamps] # TODO :timestamps => :on
 
-				model.__send__(:define_method,:rater) do
-					self.send(rater[:name])
-				end
-
 				rateable_name = self.name.underscore
-				model.__send__(:define_method,:rateable) do
-					self.send(rateable_name)
+
+				model.instance_eval do
+					alias_method(:rater,rater[:name])
+					alias_method(:rater=,"#{rater[:name]}=")
+					alias_method(:rateable,rateable_name)
+					alias_method(:rateable=,"#{rateable_name}=")
+
+					alias_method(:rater_id,"#{rater[:name]}_id")
+					alias_method(:rater_id=,"#{rater[:name]}_id=")
+					alias_method(:rateable_id,"#{rateable_name}_id")
+					alias_method(:rateable_id=,"#{rateable_name}_id=")
 				end
 
 				model.class_eval(&enhancer) if enhancer
@@ -313,7 +318,8 @@ module DataMapper
             raise TogglableRatingDisabled, "Ratings cannot be toggled for #{self}"
           end
         end
-				
+
+				# FIXME: rater can rate multiple concerns. need to pass concern.
         def rate(rating, rater)
           unless self.rating_enabled?
             raise(RatingDisabled, "Ratings are not enabled for #{self}")
@@ -338,6 +344,7 @@ module DataMapper
 
         end
 
+				# FIXME: rater can rate multiple concerns. need to pass concern.
         # average_rating_of(:users) => nil
         # average_rating_of(Account) => 3.76
         def average_rating_of(raters_or_model)
@@ -348,11 +355,13 @@ module DataMapper
 					c > 0 ? sum.to_f / c : nil
         end
 
+				# FIXME: rater can rate multiple concerns. need to pass concern.
         def rating_assoc_for(rater)
           config = self.class.rating_config_for(rater.class)
           self.send(config[:as])
         end
 
+				# FIXME: rater can rate multiple concerns. need to pass concern.
         def rating_of(rater)
           raise unless rater.is_a? DataMapper::Resource
           config = self.class.rating_config_for(rater.class)

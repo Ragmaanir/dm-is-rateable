@@ -1,4 +1,6 @@
 
+require 'integration/shared_examples'
+
 describe DataMapper::Is::Rateable do
 
 	def unload_consts(*consts)
@@ -144,8 +146,7 @@ describe DataMapper::Is::Rateable do
 			its(:relationships) { should be_named(:account) }
 			its(:relationships) { should be_named(:trip) }
 
-			its(:instance_methods) { should include(:rater) }
-			its(:instance_methods) { should include(:rateable) }
+			it_behaves_like :rating_model
 		end
 
 		describe 'Instance' do
