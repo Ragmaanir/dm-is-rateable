@@ -34,15 +34,13 @@ module DataMapper
 				#
 				#
 				def self.infer_rater(by_option)
-          case by_option
+          result = case by_option
             when Symbol
               name = by_option.to_s.singularize
               {
                 :name => name.to_sym,
                 :model => name.classify,
-                :key => Inflector.foreign_key(name).to_sym,
-                :type => Integer,
-                :options => { :required => true, :min => 0 } # FIXME only merge :min when type is integer
+                :key => Inflector.foreign_key(name).to_sym
               }
             when Hash
               by_option.assert_valid_keys(:name,:key,:type,:model,:options)
@@ -51,22 +49,22 @@ module DataMapper
 							model = key.to_s.gsub(/_id/,'').classify
 							{
 								:model => model,
-								:key => key,
-								:type => Integer,
-								:options => { :required => true, :min => 0 } # FIXME only merge :min when type is integer
+								:key => key
 							}.merge(by_option)
 						when DataMapper::Model
 							name = by_option.name.downcase
               {
                 :name => name.to_sym,
                 :model => by_option.name,
-                :key => Inflector.foreign_key(name).to_sym,
-                :type => Integer,
-                :options => { :required => true, :min => 0 } # FIXME only merge :min when type is integer
+                :key => Inflector.foreign_key(name).to_sym
               }
             when nil then raise ":by option missing"
             else raise "invalid value for :by: #{by_option}"
           end
+
+					result = {:type => Integer}.merge(result)
+					result = { :options => { :required => true, :min => 0 } }.merge(result) if result[:type] == Integer
+					result
         end
 
 				#
@@ -127,18 +125,17 @@ module DataMapper
 
 				rater = Helper.infer_rater(options[:by])
 
-				# TODO rename to ratings and make it an array
-        if self.respond_to?(:rating_configs)
-          raise("duplicate is :rateable, :by => #{rater[:model]}") if rating_configs.find{ |model,config|
-            config[:by][:model] == rater[:model]
+				if self.respond_to?(:rating_configs)
+          raise("duplicate is :rateable, :by => #{rater[:model]}") if rating_configs.find{ |config|
+            config[:by][:model] == rater[:model] and config[:concerning] == options[:concerning]
           }
         else
           class_attribute :rating_configs
-          self.rating_configs = {}
+          self.rating_configs = []
         end
 
         # add rating config
-        self.rating_configs.merge!(options[:model] => options.merge(:by => rater))
+				self.rating_configs << options.merge(:by => rater)
 
 				rating_model = generate_rating_model(options[:model])
 				configure_rating_model(rating_model, options, &enhancer)
@@ -185,6 +182,7 @@ module DataMapper
 				rating_model
 			end
 
+			#
 			def configure_self(options)
 				rater = Helper.infer_rater(options[:by])
 				rating_name = options[:rating_name]
@@ -196,6 +194,7 @@ module DataMapper
         end
 			end
 
+			#
 			def configure_rating_model(model,options,&enhancer)
 				raise unless model.is_a? DataMapper::Model
 
@@ -222,6 +221,7 @@ module DataMapper
 
 				rateable_name = self.name.underscore
 
+				# define aliases accessible on all ratings
 				model.instance_eval do
 					alias_method(:rater,rater[:name])
 					alias_method(:rater=,"#{rater[:name]}=")
@@ -237,13 +237,12 @@ module DataMapper
 				model.class_eval(&enhancer) if enhancer
 			end
 
+			# make the ratings accessable from the rater model through setting up a has-n relationship.
 			def configure_rater_model(rater_model,options)
 				ratings_name = (self.name + options[:rating_name]).underscore.pluralize
 
 				rater_model.has n, ratings_name, :model => options[:model]
 			end
-
-
 
 			#
 			#
@@ -260,22 +259,45 @@ module DataMapper
           DataMapper::Inflector.foreign_key(demodulized_name).to_sym
         end
 
-        # Rateable.rating_config_for(:users)  #=> { :name => :user, :model => 'Account', ... }
+#        # Rateable.rating_config_for(:users)  #=> { :name => :user, :model => 'Account', ... }
+#        # Rateable.rating_config_for(User)    #=> { :model => 'User', :name => :author, ...  }
+#        def rating_config_for(raters_or_model)
+#          case raters_or_model
+#            when Symbol
+#              rating_configs.find{ |model,conf| conf[:by][:name] == raters_or_model.to_s.singularize.to_sym }.last
+#            when DataMapper::Model
+#              rating_configs.find{ |model,conf| conf[:by][:model] == raters_or_model.to_s }.last
+#            else raise("expected model or symbol but got: #{raters_or_model.inspect}")
+#          end
+#        end
+
+				# Rateable.rating_config_for(:users)  #=> { :name => :user, :model => 'Account', ... }
         # Rateable.rating_config_for(User)    #=> { :model => 'User', :name => :author, ...  }
-        def rating_config_for(raters_or_model)
-          case raters_or_model
+        def rating_config_for(raters_or_model,concern=nil)
+          matches = case raters_or_model
             when Symbol
-              rating_configs.find{ |model,conf| conf[:by][:name] == raters_or_model.to_s.singularize.to_sym }.last
+              rating_configs.select{ |conf|
+								conf[:by][:name] == raters_or_model.to_s.singularize.to_sym
+							}
             when DataMapper::Model
-              rating_configs.find{ |model,conf| conf[:by][:model] == raters_or_model.to_s }.last
+              rating_configs.select{ |conf|
+								conf[:by][:model] == raters_or_model.to_s
+							}
             else raise("expected model or symbol but got: #{raters_or_model.inspect}")
           end
+
+					if matches.length>1
+						raise "concern required, was: #{concern.inspect}" unless concern.is_a? Symbol
+						matches.find{|conf| conf[:concerning] == concern }
+					else
+						matches.first
+					end
         end
 
         # rating_model_for(:authors)  #=> RateableUserRating
         # rating_model_for(User)      #=> RateableUserRating
-        def rating_model_for(raters_or_model)
-          cfg = rating_config_for(raters_or_model)
+        def rating_model_for(raters_or_model,concern=nil)
+          cfg = rating_config_for(raters_or_model,concern)
 					cfg[:model].constantize
         end
 
@@ -320,12 +342,12 @@ module DataMapper
         end
 
 				# FIXME: rater can rate multiple concerns. need to pass concern.
-        def rate(rating, rater)
+        def rate(rating, rater, concern=nil)
           unless self.rating_enabled?
             raise(RatingDisabled, "Ratings are not enabled for #{self}")
           end
 
-          config  = self.class.rating_config_for(rater.class)
+          config  = self.class.rating_config_for(rater.class, concern)
 
           unless config[:with].include?(rating)
             raise(ImpossibleRatingValue, "Rating (#{rating}) must be in #{config[:with].inspect}")
@@ -337,39 +359,38 @@ module DataMapper
             end
           else
             # FIXME: save or raise
-            res = rating_assoc_for(rater).create(config[:by][:key] => rater.id, :rating => rating)
+            #res = rating_assoc_for(rater).create(config[:by][:key] => rater.id, :rating => rating)
+						res = ratings_of(rater.class,concern).create(config[:by][:key] => rater.id, :rating => rating)
             raise(res.errors.inspect) unless res.saved?
             res
           end
 
         end
 
-				# FIXME: rater can rate multiple concerns. need to pass concern.
         # average_rating_of(:users) => nil
         # average_rating_of(Account) => 3.76
-        def average_rating_of(raters_or_model)
-          rating_model = self.class.rating_model_for(raters_or_model)
+        def average_rating_of(raters_or_model,concern=nil)
+          rating_model = self.class.rating_model_for(raters_or_model,concern)
           conditions = {self.class.rateable_fk => self.id}
           c,sum = rating_model.aggregate(:rating.count, :rating.sum, conditions)
           #c > 0 ? rating_model.sum(:rating, conditions).to_f / c : nil
 					c > 0 ? sum.to_f / c : nil
         end
 
-				# FIXME: rater can rate multiple concerns. need to pass concern.
-        def rating_assoc_for(rater)
-          config = self.class.rating_config_for(rater.class)
+				def ratings_of(rater_model,concern=nil)
+					raise unless rater_model.is_a? DataMapper::Model
+          config = self.class.rating_config_for(rater_model,concern)
           self.send(config[:as])
         end
 
-				# FIXME: rater can rate multiple concerns. need to pass concern.
-        def rating_of(rater)
+        def rating_of(rater,concern=nil)
           raise unless rater.is_a? DataMapper::Resource
-          config = self.class.rating_config_for(rater.class)
-          rating_assoc_for(rater).first(config[:by][:key] => rater.id)
+          config = self.class.rating_config_for(rater.class,concern)
+          ratings_of(rater.class,concern).first(config[:by][:key] => rater.id)
         end
         
-      end
+      end#InstanceMethods
       
-    end
-  end
-end
+    end#Rateable
+  end#Is
+end#DataMapper

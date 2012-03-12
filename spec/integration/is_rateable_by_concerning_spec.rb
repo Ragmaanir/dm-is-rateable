@@ -45,8 +45,8 @@ describe DataMapper::Is::Rateable do
 		describe 'Model' do
 			subject{ rateable_model }
 
-			its(:rating_configs) { should == {
-				'AccountTripQualityRating' => {
+			its(:rating_configs) { should == [
+				{
 					:by => {
 						:name => :account,
 						:key => :account_id,
@@ -61,7 +61,7 @@ describe DataMapper::Is::Rateable do
 					:rating_name => 'QualityRating',
 					:concerning => :quality
 				}
-			} }
+			] }
 
 			its(:relationships) { should be_named(:account_quality_ratings) }
 
