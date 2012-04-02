@@ -187,7 +187,7 @@ module DataMapper
 				rater = Helper.infer_rater(options[:by])
 				rating_name = options[:rating_name]
 
-				self.has n, options[:as], options[:model]
+				self.has n, options[:as], options[:model], :constraint => :destroy!
 				
 				define_method("average_#{rater[:name]}_#{rating_name.underscore}") do
           average_rating_of(rater[:model].constantize)

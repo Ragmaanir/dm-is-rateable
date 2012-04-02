@@ -7,6 +7,7 @@ require 'dm-validations'
 require 'dm-aggregates'
 require 'dm-is-remixable'
 require 'dm-migrations'
+require 'dm-constraints'
 
 require 'active_support/core_ext'
 require 'active_support/inflector'

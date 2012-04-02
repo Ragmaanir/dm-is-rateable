@@ -1,8 +1,14 @@
 TODO
 ====
 
+* add specs for :constraint => :destroy!
 * Add specs for allowed_rating_values of type Enum
 * Add specs for the case when the remixing model is namespaced
 * #rate should raise for invalid rating
 * enabled/disabled rating
 * multiple ratings spec (2x is rateable)
+
+DONE
+====
+
+* add :constraint => :destroy!

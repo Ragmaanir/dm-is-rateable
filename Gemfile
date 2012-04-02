@@ -10,6 +10,7 @@ gem 'dm-timestamps',   DM_VERSION
 gem 'dm-types',        DM_VERSION
 gem 'dm-is-remixable', DM_VERSION
 gem 'dm-migrations',   DM_VERSION
+gem 'dm-constraints',  DM_VERSION
 
 gem 'i18n'
 gem 'activesupport', '>= 3.1'
