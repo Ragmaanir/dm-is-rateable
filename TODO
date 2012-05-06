@@ -1,6 +1,7 @@
 TODO
 ====
 
+* add spec for: rating_of(rater,:concerning_a), rating_of(rater,:concerning_b)
 * add specs for :constraint => :destroy!
 * Add specs for allowed_rating_values of type Enum
 * Add specs for the case when the remixing model is namespaced

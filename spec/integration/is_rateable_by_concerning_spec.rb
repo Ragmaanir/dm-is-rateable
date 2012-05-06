@@ -79,10 +79,13 @@ describe DataMapper::Is::Rateable do
 			end
 
 			context 'when one rating exists' do
-				before{ rateable.rate(1,rater_model.create) }
+				let(:rater) { rater_model.create }
+				before{ rateable.rate(1,rater) }
 
 				it{ rateable.average_rating_of(rater_model).should == 1 }
 				its(:average_account_quality_rating) { should == 1 }
+				it{ rateable.rating_of(rater,:quality).rating.should == 1 }
+				it{ rateable.rating_of(rater).rating.should == 1 }
 			end
 
 			context 'when multiple ratings exist' do
