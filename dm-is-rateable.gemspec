@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = "dm-is-rateable"
-  s.version = "1.2.0"
+  s.version = "1.2.1"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Martin Gamsjaeger (snusnu)", "Ragmaanir"]
-  s.date = "2012-03-03"
+  s.date = "2012-05-06"
   s.description = "DataMapper plugin that adds the possibility to rate models"
   s.email = "ragmaanir@gmail.com"
   s.extra_rdoc_files = [
@@ -38,12 +38,13 @@ Gem::Specification.new do |s|
     "spec/integration/is_rateable_by_spec.rb",
     "spec/integration/is_rateable_by_with_spec.rb",
     "spec/integration/rateable_spec.rb",
+    "spec/integration/shared_examples.rb",
     "spec/spec_helper.rb",
     "tasks/hoe.rb"
   ]
   s.homepage = "http://github.com/Ragmaanir/dm-is-rateable"
   s.require_paths = ["lib"]
-  s.rubygems_version = "1.8.15"
+  s.rubygems_version = "1.8.21"
   s.summary = "Rating plugin for datamapper"
 
   if s.respond_to? :specification_version then
@@ -57,6 +58,7 @@ Gem::Specification.new do |s|
       s.add_runtime_dependency(%q<dm-types>, ["~> 1.2.0"])
       s.add_runtime_dependency(%q<dm-is-remixable>, ["~> 1.2.0"])
       s.add_runtime_dependency(%q<dm-migrations>, ["~> 1.2.0"])
+      s.add_runtime_dependency(%q<dm-constraints>, ["~> 1.2.0"])
       s.add_runtime_dependency(%q<i18n>, [">= 0"])
       s.add_runtime_dependency(%q<activesupport>, [">= 3.1"])
       s.add_development_dependency(%q<rake>, [">= 0"])
@@ -71,6 +73,7 @@ Gem::Specification.new do |s|
       s.add_dependency(%q<dm-types>, ["~> 1.2.0"])
       s.add_dependency(%q<dm-is-remixable>, ["~> 1.2.0"])
       s.add_dependency(%q<dm-migrations>, ["~> 1.2.0"])
+      s.add_dependency(%q<dm-constraints>, ["~> 1.2.0"])
       s.add_dependency(%q<i18n>, [">= 0"])
       s.add_dependency(%q<activesupport>, [">= 3.1"])
       s.add_dependency(%q<rake>, [">= 0"])
@@ -86,6 +89,7 @@ Gem::Specification.new do |s|
     s.add_dependency(%q<dm-types>, ["~> 1.2.0"])
     s.add_dependency(%q<dm-is-remixable>, ["~> 1.2.0"])
     s.add_dependency(%q<dm-migrations>, ["~> 1.2.0"])
+    s.add_dependency(%q<dm-constraints>, ["~> 1.2.0"])
     s.add_dependency(%q<i18n>, [">= 0"])
     s.add_dependency(%q<activesupport>, [">= 3.1"])
     s.add_dependency(%q<rake>, [">= 0"])
