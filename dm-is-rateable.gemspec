@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = "dm-is-rateable"
-  s.version = "1.2.1"
+  s.version = "1.2.2"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Martin Gamsjaeger (snusnu)", "Ragmaanir"]
-  s.date = "2012-05-06"
+  s.date = "2012-07-20"
   s.description = "DataMapper plugin that adds the possibility to rate models"
   s.email = "ragmaanir@gmail.com"
   s.extra_rdoc_files = [
@@ -19,6 +19,7 @@ Gem::Specification.new do |s|
   ]
   s.files = [
     ".rspec",
+    ".rvmrc",
     "Gemfile",
     "Gemfile.lock",
     "History.txt",
@@ -44,7 +45,7 @@ Gem::Specification.new do |s|
   ]
   s.homepage = "http://github.com/Ragmaanir/dm-is-rateable"
   s.require_paths = ["lib"]
-  s.rubygems_version = "1.8.21"
+  s.rubygems_version = "1.8.24"
   s.summary = "Rating plugin for datamapper"
 
   if s.respond_to? :specification_version then
