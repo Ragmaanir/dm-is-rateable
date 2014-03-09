@@ -1,4 +1,3 @@
-require 'dm-is-rateable/is/rating'
 require 'dm-is-rateable/is/rateable_extensions'
 require 'dm-is-rateable/is/helper'
 
@@ -34,8 +33,7 @@ module DataMapper
         # add rating config
         self.rating_configs << options
 
-        rating_model = generate_rating_model(options[:model])
-        configure_rating_model(rating_model, options, &customizer)
+        create_rating_model(options, &customizer)
         configure_self(options)
         configure_rater_model(options[:by][:model].constantize, options)
       end
@@ -58,38 +56,56 @@ module DataMapper
       end
 
       # Copied from dm-is-remixable
-      def generate_rating_model(full_name)
-        parts = full_name.split('::')
+      def create_rating_model(options, &customizer)
+        parts = options[:model].split('::')
         name = parts.last
         namespace = (parts-[parts.last]).join('::').constantize
 
         rating_model = Model.new(name, namespace) do
-          include Rating
+          include DataMapper::Resource
+
+          property :id, DataMapper::Property::Serial
         end
 
-        if DataMapper.const_defined?('Validations')
-          # Port over any other validation contexts to this model.  Skip the
-          # default context since it has already been included above.
-          Rating.validators.contexts.each do |context, validators|
-            next if context == :default
-            rating_model.validators.contexts[context] = validators
+        rateable_key = Helper.key_name_from(self.name)
+        rater = options[:by]
+        rating_type, rating_options = Helper.property_options_from_with_option(options[:with])
+
+        rating_options = {:required => true}.merge(rating_options||{})
+
+        rateable_class = self.name
+        rateable_name = rateable_class.underscore
+
+        # define aliases accessible on all ratings
+        rating_model.instance_eval do
+          property :rating, rating_type, rating_options
+          property rater[:key], rater[:type], rater[:options]
+          property rateable_key, Integer, :required => true, :min => 0
+
+          belongs_to rater[:name], rater[:model]
+          belongs_to rateable_name, rateable_class
+
+          if rater
+            belongs_to rater[:name], rater[:model]
+
+            # FIXME
+            #validates_uniqueness_of rater[:key], :when => :testing_association, :scope => [parent_assocation]
+            validates_uniqueness_of rater[:key], :when => :testing_property, :scope => [rateable_key]
           end
-        end
 
-        # Port the properties over
-        Rating.properties.each do |prop|
-          rating_model.property(prop.name, prop.class, prop.options)
-        end
+          timestamps(:at) if options[:timestamps] # TODO :timestamps => :on
 
-        Rating.__send__(:copy_hooks, rating_model)
+          alias_method(:rater,rater[:name])
+          alias_method(:rater=,"#{rater[:name]}=")
+          alias_method(:rateable,rateable_name)
+          alias_method(:rateable=,"#{rateable_name}=")
 
-        # event name is by default :create, :destroy etc
-        Rating.instance_hooks.each do |event_name, hooks|
-          [:after, :before].each do |callback|
-            hooks[callback].each do |hook|
-              rating_model.send(callback, event_name, hook[:name])
-            end
-          end
+          alias_method(:rater_id,"#{rater[:name]}_id")
+          alias_method(:rater_id=,"#{rater[:name]}_id=")
+          alias_method(:rateable_id,"#{rateable_name}_id")
+          alias_method(:rateable_id=,"#{rateable_name}_id=")
+
+          instance_eval(&customizer) if customizer
         end
 
         rating_model
@@ -159,7 +175,6 @@ module DataMapper
 
         rater_model.has n, ratings_name, :model => options[:model]
       end
-
 
     end#Rateable
   end#Is
