@@ -115,27 +115,30 @@ module DataMapper
         rater = options[:by]
         rating_type, rating_options = Helper.property_options_from_with_option(options[:with])
 
-        model.property :rating, rating_type, {:required => true}.merge(rating_options||{})
-        model.property rater[:key], rater[:type], rater[:options]
-        model.property rateable_key, Integer, :required => true, :min => 0
+        rating_options = {:required => true}.merge(rating_options||{})
 
-        model.belongs_to rater[:name], rater[:model]
-        model.belongs_to self.name.underscore, self.name
-
-        if rater
-          model.belongs_to rater[:name], rater[:model]
-
-          # FIXME
-          #model.validates_uniqueness_of rater[:key], :when => :testing_association, :scope => [parent_assocation]
-          model.validates_uniqueness_of rater[:key], :when => :testing_property, :scope => [rateable_key]
-        end
-
-        model.timestamps(:at) if options[:timestamps] # TODO :timestamps => :on
-
-        rateable_name = self.name.underscore
+        rateable_class = self.name
+        rateable_name = rateable_class.underscore
 
         # define aliases accessible on all ratings
         model.instance_eval do
+          property :rating, rating_type, rating_options
+          property rater[:key], rater[:type], rater[:options]
+          property rateable_key, Integer, :required => true, :min => 0
+
+          belongs_to rater[:name], rater[:model]
+          belongs_to rateable_name, rateable_class
+
+          if rater
+            belongs_to rater[:name], rater[:model]
+
+            # FIXME
+            #validates_uniqueness_of rater[:key], :when => :testing_association, :scope => [parent_assocation]
+            validates_uniqueness_of rater[:key], :when => :testing_property, :scope => [rateable_key]
+          end
+
+          timestamps(:at) if options[:timestamps] # TODO :timestamps => :on
+
           alias_method(:rater,rater[:name])
           alias_method(:rater=,"#{rater[:name]}=")
           alias_method(:rateable,rateable_name)
