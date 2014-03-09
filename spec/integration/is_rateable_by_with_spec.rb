@@ -9,7 +9,7 @@ describe DataMapper::Is::Rateable do
       Object.send(:remove_const, c) if Object.const_defined?(c)
     end
   end
-  
+
 #  def define_models(&block)
 #    @rateable_model = Class.new do
 #      include DataMapper::Resource
@@ -20,9 +20,9 @@ describe DataMapper::Is::Rateable do
 #      include DataMapper::Resource
 #      property :id, Serial
 #    end
-#    
-#    @rating_model = 
-#    
+#
+#    @rating_model =
+#
 #    [rateable_model,rater_model,rating_model].each(&:auto_migrate!)
 #  end
 
@@ -163,7 +163,7 @@ describe DataMapper::Is::Rateable do
 
         its(:relationships) { should be_named(:account) }
         its(:relationships) { should be_named(:trip) }
-        
+
         it 'has :with constraints on rating property' do
           subject.properties[:rating].flag_map.values.should == [:good,:bad]
         end
@@ -185,7 +185,7 @@ describe DataMapper::Is::Rateable do
 
     end
   end
-  
+
   context 'BUGS' do
     # --------------------------------------------------------------------------------------------------
     # SCENARIO
@@ -213,7 +213,7 @@ describe DataMapper::Is::Rateable do
     let(:rateable_model){ Trip }
     let(:rater_model)   { Account }
     let(:rating_model)  { AccountTripRating }
-    
+
     describe 'Rating' do
       describe 'Model' do
         subject{ rating_model }

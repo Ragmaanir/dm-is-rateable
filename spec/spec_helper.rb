@@ -36,18 +36,18 @@ RSpec.configure do |c|
   c.run_all_when_everything_filtered = true
   #c.fail_fast = true
 
-	c.before(:suite) do
-		unless HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
-			fail 'need a database for testing (e.g. sqlite3)'
-		end
-	end
+  c.before(:suite) do
+    unless HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
+      fail 'need a database for testing (e.g. sqlite3)'
+    end
+  end
 end
 
 def unload_consts(*consts)
-	consts.each do |c|
-		c = "#{c}"
-		Object.send(:remove_const, c) if Object.const_defined?(c)
-	end
+  consts.each do |c|
+    c = "#{c}"
+    Object.send(:remove_const, c) if Object.const_defined?(c)
+  end
 end
 
 
