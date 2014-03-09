@@ -1,8 +1,18 @@
 
 describe DataMapper::Is::Rateable do
 
-  describe '.infer_rater from' do
-    subject{ DataMapper::Is::Rateable::Helper.infer_rater(by_options) }
+  describe '.property_options_from_with_option' do
+    def invocation(*args)
+      DataMapper::Is::Rateable::Helper.property_options_from_with_option(*args)
+    end
+
+    it { invocation(1..5).should == [Integer, min: 1, max: 5] }
+    it { invocation(0.0..1.0).should == [Float, min: 0.0, max: 1.0] }
+    it { invocation([:bad, :good]).should == DataMapper::Property::Enum[:bad, :good] }
+  end
+
+  describe '.rater_from_by_option from' do
+    subject{ DataMapper::Is::Rateable::Helper.rater_from_by_option(by_options) }
 
     context ':users' do
       let(:by_options) { :users }

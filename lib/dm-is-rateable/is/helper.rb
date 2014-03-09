@@ -10,7 +10,8 @@ module DataMapper
           model_name.demodulize.underscore + '_id'
         end
 
-        def self.deduce_rating_type(allowed_ratings)
+        # converts the value passed to :with => ... to DM-property type and options
+        def self.property_options_from_with_option(allowed_ratings)
           case allowed_ratings
             when Range then
               case allowed_ratings.first
@@ -28,7 +29,7 @@ module DataMapper
 
         #
         #
-        def self.infer_rater(by_option)
+        def self.rater_from_by_option(by_option)
           result = case by_option
             when Symbol
               name = by_option.to_s.singularize
@@ -68,7 +69,7 @@ module DataMapper
         def self.complete_options(options,clz)
           raise("model option not supported") if options[:model]
           raise 'options :as and :concerning are mutually exclusive' if options[:as] and options[:concerning]
-          rater = Helper.infer_rater(options[:by])
+          rater = Helper.rater_from_by_option(options[:by])
 
           concern = options[:concerning].to_s || ''
           rating_name = "#{concern.camelize}Rating"

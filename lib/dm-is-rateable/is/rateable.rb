@@ -22,14 +22,14 @@ module DataMapper
       # end
       #
       # is :rateable, :by => {:name => :user, :key => :user_id, :model => 'User'}
-      def is_rateable(options = {},&enhancer)
+      def is_rateable(options = {}, &customizer)
 
         extend  ClassMethods
         include InstanceMethods
 
         options = Helper.complete_options(options, self)
 
-        rater = Helper.infer_rater(options[:by])
+        rater = Helper.rater_from_by_option(options[:by])
 
         if self.respond_to?(:rating_configs)
           raise("duplicate is :rateable, :by => #{rater[:model]}") if rating_configs.find{ |config|
@@ -44,7 +44,7 @@ module DataMapper
         self.rating_configs << options.merge(:by => rater)
 
         rating_model = generate_rating_model(options[:model])
-        configure_rating_model(rating_model, options, &enhancer)
+        configure_rating_model(rating_model, options, &customizer)
         configure_self(options)
         configure_rater_model(rater[:model].constantize, options)
 
@@ -90,7 +90,7 @@ module DataMapper
 
       #
       def configure_self(options)
-        rater = Helper.infer_rater(options[:by])
+        rater = Helper.rater_from_by_option(options[:by])
         rating_name = options[:rating_name]
 
         self.has n, options[:as], options[:model], :constraint => :destroy!
@@ -101,12 +101,12 @@ module DataMapper
       end
 
       #
-      def configure_rating_model(model,options,&enhancer)
+      def configure_rating_model(model,options,&customizer)
         raise unless model.is_a? DataMapper::Model
 
         rateable_key = Helper.key_name_from(self.name)
-        rater = Helper.infer_rater(options[:by])
-        rating_type, rating_options = Helper.deduce_rating_type(options[:with])
+        rater = Helper.rater_from_by_option(options[:by])
+        rating_type, rating_options = Helper.property_options_from_with_option(options[:with])
 
         model.property :rating, rating_type, {:required => true}.merge(rating_options||{})
         model.property rater[:key], rater[:type], rater[:options]
@@ -140,7 +140,7 @@ module DataMapper
           alias_method(:rateable_id=,"#{rateable_name}_id=")
         end
 
-        model.class_eval(&enhancer) if enhancer
+        model.class_eval(&customizer) if customizer
       end
 
       # make the ratings accessable from the rater model through setting up a has-n relationship.
