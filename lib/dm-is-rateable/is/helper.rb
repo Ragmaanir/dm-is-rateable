@@ -63,6 +63,11 @@ module DataMapper
           result
         end
 
+        DEFAULT_OPTIONS = {
+          :with => 0..5,
+          :timestamps => true
+        }
+
         #
         # Fills in defaults and adds values based on values passed in the options hash.
         #
@@ -85,14 +90,12 @@ module DataMapper
               "#{rater[:name]}#{concern_part}_ratings"
             end.to_sym
 
-          options = {
-            :with => 0..5,
+          options = DEFAULT_OPTIONS.merge(options).merge(
             :by => rater,
             :as => as,
-            :timestamps => true,
             :model => model,
             :rating_name => rating_name
-          }.merge(options)
+          )
 
           options.freeze
         end

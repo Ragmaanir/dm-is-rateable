@@ -88,7 +88,13 @@ describe DataMapper::Is::Rateable do
 
       it{ should == {
         :with => 0..5,
-        :by => :users,
+        :by => {
+          :options => { :required => true, :min => 0 },
+          :type => Integer,
+          :name => :user,
+          :model => "User",
+          :key => :user_id
+        },
         :as => :user_ratings,
         :timestamps => true,
         :model => 'UserXyzRating',
@@ -102,7 +108,13 @@ describe DataMapper::Is::Rateable do
 
       it{ should == {
         :with => 0..5,
-        :by => :users,
+        :by => {
+          :options => { :required => true, :min => 0 },
+          :type => Integer,
+          :name => :user,
+          :model => "User",
+          :key => :user_id
+        },
         :as => :ratings,
         :timestamps => true,
         :model => 'UserXyzRating',
@@ -116,7 +128,13 @@ describe DataMapper::Is::Rateable do
 
       it{ should == {
         :with => 0..5,
-        :by => :users,
+        :by => {
+          :options => { :required => true, :min => 0 },
+          :type => Integer,
+          :name => :user,
+          :model => "User",
+          :key => :user_id
+        },
         :as => :user_quality_ratings,
         :concerning => :quality,
         :timestamps => true,
@@ -146,7 +164,7 @@ describe DataMapper::Is::Rateable do
 
       it{ should == {
         :with => 0..5,
-        :by => by_options,
+        :by => by_options.merge(:options => { :required => true, :min => 0 }, :type => Integer),
         :as => :user_ratings,
         :timestamps => true,
         :model => 'LegacyUserXyzRating',
@@ -161,7 +179,7 @@ describe DataMapper::Is::Rateable do
 
       it{ should == {
         :with => 0..5,
-        :by => by_options,
+        :by => by_options.merge(:options => { :required => true, :min => 0 }, :type => Integer),
         :as => :user_quality_ratings,
         :concerning => :quality,
         :timestamps => true,

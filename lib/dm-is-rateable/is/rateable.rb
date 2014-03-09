@@ -29,25 +29,30 @@ module DataMapper
 
         options = Helper.complete_options(options, self)
 
-        rater = Helper.rater_from_by_option(options[:by])
-
-        if self.respond_to?(:rating_configs)
-          raise("duplicate is :rateable, :by => #{rater[:model]}") if rating_configs.find{ |config|
-            config[:by][:model] == rater[:model] and config[:concerning] == options[:concerning]
-          }
-        else
-          class_attribute :rating_configs
-          self.rating_configs = []
-        end
+        initialize_and_store_configuration(options)
 
         # add rating config
-        self.rating_configs << options.merge(:by => rater)
+        self.rating_configs << options
 
         rating_model = generate_rating_model(options[:model])
         configure_rating_model(rating_model, options, &customizer)
         configure_self(options)
-        configure_rater_model(rater[:model].constantize, options)
+        configure_rater_model(options[:by][:model].constantize, options)
+      end
 
+    private
+
+      def initialize_and_store_configuration(config)
+        if self.respond_to?(:rating_configs)
+          existing_config = rating_configs.find{ |other|
+            other[:by][:model] == config[:by][:model] &&
+            other[:concerning] == config[:concerning]
+          }
+          raise("duplicate is :rateable, :by => #{rater[:model]}") if existing_config.present?
+        else
+          class_attribute :rating_configs
+          self.rating_configs = []
+        end
       end
 
       # Copied from dm-is-remixable
@@ -90,7 +95,7 @@ module DataMapper
 
       #
       def configure_self(options)
-        rater = Helper.rater_from_by_option(options[:by])
+        rater = options[:by]
         rating_name = options[:rating_name]
 
         self.has n, options[:as], options[:model], :constraint => :destroy!
@@ -105,7 +110,7 @@ module DataMapper
         raise unless model.is_a? DataMapper::Model
 
         rateable_key = Helper.key_name_from(self.name)
-        rater = Helper.rater_from_by_option(options[:by])
+        rater = options[:by]
         rating_type, rating_options = Helper.property_options_from_with_option(options[:with])
 
         model.property :rating, rating_type, {:required => true}.merge(rating_options||{})
