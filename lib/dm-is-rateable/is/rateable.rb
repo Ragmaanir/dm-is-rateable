@@ -48,7 +48,9 @@ module DataMapper
             other[:by][:model] == config[:by][:model] &&
             other[:concerning] == config[:concerning]
           }
-          raise("duplicate is :rateable, :by => #{rater[:model]}") if existing_config.present?
+          if existing_config.present?
+            raise("duplicate is :rateable, :by => #{config[:by][:model]}")
+          end
         else
           class_attribute :rating_configs
           self.rating_configs = []
