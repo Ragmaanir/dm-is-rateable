@@ -108,7 +108,7 @@ module DataMapper
           options.freeze
         end
 
-      end
+      end#Helper
 
       # is :rateable, :by => :users, :with => 0..5, :as => :user_ratings, :model => 'SpecialUserRating' do
       #   def xyz; true; end
