@@ -10,8 +10,12 @@ module DataMapper
         end
 
         def rateable_fk
-          demodulized_name = DataMapper::Inflector.demodulize(self.name)
-          DataMapper::Inflector.foreign_key(demodulized_name).to_sym
+          if superclass.is_a? DataMapper::Model
+            superclass.rateable_fk
+          else
+            demodulized_name = DataMapper::Inflector.demodulize(self.name)
+            DataMapper::Inflector.foreign_key(demodulized_name).to_sym
+          end
         end
 
         # Rateable.rating_config_for(:users)  #=> { :name => :user, :model => 'Account', ... }

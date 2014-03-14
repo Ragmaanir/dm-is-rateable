@@ -1,3 +1,6 @@
+
+require 'integration/shared_examples'
+
 describe DataMapper::Is::Rateable do
 
   def unload_consts(*consts)
@@ -69,35 +72,13 @@ describe DataMapper::Is::Rateable do
       it_behaves_like :rateable_model
     end
 
-    describe 'Instance' do
-      let(:rateable)  { rateable_model.create }
+    describe 'Instance of subclass' do
+      let(:rateable)  { CampingTrip.create }
+      let(:concern)   { :quality }
 
-      subject{ rateable }
-
-      context 'when no rating exists' do
-        it{ rateable.average_rating_of(rater_model).should == nil }
-        its(:average_account_rating) { should == nil }
-      end
-
-      context 'when one rating exists' do
-        let(:rater) { rater_model.create }
-        before{ rateable.rate(1,rater) }
-
-        it{ rateable.average_rating_of(rater_model).should == 1 }
-        its(:average_account_rating) { should == 1 }
-        it{ rateable.rating_of(rater,:quality).rating.should == 1 }
-        it{ rateable.rating_of(rater).rating.should == 1 }
-      end
-
-      context 'when multiple ratings exist' do
-        let(:avg) { ratings.sum.to_f/ratings.length }
-        let(:ratings) { 10.times.map{ (0..5).to_a.sample } }
-        before{ ratings.each{ |r| rateable.rate(r,rater_model.create) } }
-
-        it{ rateable.average_rating_of(rater_model).should == avg }
-        its(:average_account_rating) { should == avg }
-      end
+      it_should_behave_like :rateable_instance
     end
+
   end
 
 end

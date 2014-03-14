@@ -57,9 +57,9 @@ module DataMapper
 
       # Copied from dm-is-remixable
       def create_rating_model(options, &customizer)
-        parts = options[:model].split('::')
-        name = parts.last
-        namespace = (parts-[parts.last]).join('::').constantize
+        parts     = options[:model].split('::')
+        name      = parts.pop
+        namespace = parts.join('::').constantize
 
         rating_model = Model.new(name, namespace) do
           include DataMapper::Resource

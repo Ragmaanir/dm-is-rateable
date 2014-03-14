@@ -34,7 +34,7 @@ HAS_POSTGRES = load_driver(:postgres, 'postgres://postgres@localhost/dm_core_tes
 RSpec.configure do |c|
   c.filter_run :focus => true
   c.run_all_when_everything_filtered = true
-  #c.fail_fast = true
+  c.fail_fast = true
 
   c.before(:suite) do
     unless HAS_SQLITE3 || HAS_MYSQL || HAS_POSTGRES
